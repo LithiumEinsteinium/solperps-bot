@@ -1,8 +1,6 @@
 require('dotenv').config();
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
+const { Connection, PublicKey } = require('@solana/web3.js');
 const { JupiterService } = require('./services/jupiter');
 const { PositionManager } = require('./services/positionManager');
 const { SignalEngine } = require('./strategies/signalEngine');
@@ -16,7 +14,6 @@ let botInstance = null;
 
 // Create HTTP server to handle Telegram webhooks
 const server = http.createServer(async (req, res) => {
-  // Handle webhook
   if (req.method === 'POST' && req.url === '/webhook') {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
@@ -42,41 +39,6 @@ server.listen(PORT, () => {
   console.log(`🌐 HTTP server running on port ${PORT}`);
 });
 
-function generateWallet() {
-  const keypair = Keypair.generate();
-  return {
-    publicKey: keypair.publicKey.toString(),
-    secretKey: Array.from(keypair.secretKey)
-  };
-}
-
-function loadOrCreateWallet() {
-  const walletPath = './data/wallet.json';
-  
-  if (fs.existsSync(walletPath)) {
-    const walletData = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
-    const secretKey = new Uint8Array(walletData.secretKey);
-    return Keypair.fromSecretKey(secretKey);
-  }
-  
-  // Generate new wallet
-  const wallet = generateWallet();
-  
-  // Ensure directory exists
-  const dir = path.dirname(walletPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  
-  // Save wallet
-  fs.writeFileSync(walletPath, JSON.stringify(wallet, null, 2));
-  console.log(`🔐 New wallet generated: ${wallet.publicKey}`);
-  console.log(`📁 Wallet saved to: ${walletPath}`);
-  console.log(`⚠️ IMPORTANT: Backup this file! It's the only way to access your funds.`);
-  
-  return Keypair.fromSecretKey(new Uint8Array(wallet.secretKey));
-}
-
 class SolPerpsBot {
   constructor(config) {
     this.config = config;
@@ -90,16 +52,12 @@ class SolPerpsBot {
     this.signals = new SignalEngine(this, config.signalConfig);
     this.telegram = new TelegramHandler(this, config.telegram);
     
-    // Phantom wallet (user-connected)
+    // User-connected Phantom wallet
     this.phantom = new PhantomWalletManager();
     
     // Price alerts
     this.priceAlerts = new Map();
     this.priceAlertInterval = null;
-    
-    // Load existing wallet or generate new one
-    // No bot wallet - users connect their own
-    // No bot wallet
     
     this.isPaperTrading = config.paperTrading || true;
     this.isRunning = false;
@@ -118,9 +76,6 @@ class SolPerpsBot {
     
     this.isRunning = true;
     console.log('✅ Bot is running!');
-    
-    // Keep process alive
-    setInterval(() => {}, 1000);
   }
 
   // ==================== TRADING ====================
@@ -131,7 +86,7 @@ class SolPerpsBot {
     const position = {
       id: Date.now().toString(),
       symbol,
-      side, // 'long' or 'short'
+      side,
       size,
       leverage,
       entryPrice: await this.jupiter.getPrice(symbol),
@@ -198,14 +153,12 @@ class SolPerpsBot {
       const pnl = this.calculatePnL(pos, currentPrice);
       const pnlPercent = (pnl / (pos.entryPrice * pos.size)) * 100;
 
-      // Check Take Profit
       if (pos.tp && pnlPercent >= pos.tp) {
         console.log(`🎯 TP Triggered for ${pos.symbol}: +${pnlPercent.toFixed(2)}%`);
         await this.closePosition(pos.id);
         await this.notify(`🎯 Take Profit! +$${pnl.toFixed(2)} on ${pos.symbol}`);
       }
 
-      // Check Stop Loss
       if (pos.sl && pnlPercent <= -pos.sl) {
         console.log(`🛑 SL Triggered for ${pos.symbol}: ${pnlPercent.toFixed(2)}%`);
         await this.closePosition(pos.id);
@@ -228,120 +181,28 @@ class SolPerpsBot {
   // ==================== BALANCE ====================
 
   async getBalance() {
-    if (this.isPaperTrading) {
-      return {
-        mode: 'paper',
-        sol: this.config.paperBalance || 10000,
-        usd: (this.config.paperBalance || 10000) * await this.jupiter.getPrice('SOL')
-      };
-    }
-
-    try {
-      const balance = await this.connection.getTokenAccountBalance(
-        new PublicKey(process.env.SOL_TOKEN_ACCOUNT)
-      );
+    // Check if user has connected their wallet
+    const phantomStatus = this.phantom.getStatus();
+    
+    if (phantomStatus.connected && !this.isPaperTrading) {
+      // Fetch real balance from connected wallet
+      await this.phantom.fetchBalance();
+      const status = this.phantom.getStatus();
       return {
         mode: 'live',
-        sol: balance.value.uiAmount,
-        usd: balance.value.uiAmount * await this.jupiter.getPrice('SOL')
-      };
-    } catch (error) {
-      // Try native SOL balance
-      const balance = await this.connection.getBalance(this.wallet.publicKey);
-      return {
-        mode: 'live',
-        sol: balance / 1e9,
-        usd: (balance / 1e9) * await this.jupiter.getPrice('SOL')
+        address: status.address,
+        sol: status.balance,
+        usd: status.balance * await this.jupiter.getPrice('SOL')
       };
     }
-  }
 
-  // ==================== TRANSFERS ====================
-
-  async transfer(toAddress, amount, token = 'SOL') {
-    if (this.isPaperTrading) {
-      console.log(`📝 [PAPER] Transfer ${amount} ${token} to ${toAddress}`);
-      return { success: true, mode: 'paper', txId: 'paper_' + Date.now() };
-    }
-
-    try {
-      const result = await this.jupiter.transfer(toAddress, amount, token);
-      return { success: true, mode: 'live', txId: result };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  // ==================== PRICE ALERTS ====================
-
-  setPriceAlert(symbol, targetPrice, direction, chatId) {
-    const alertId = Date.now().toString();
-    this.priceAlerts.set(alertId, {
-      symbol,
-      targetPrice,
-      direction, // 'above' or 'below'
-      chatId,
-      createdAt: new Date().toISOString()
-    });
-    
-    // Start monitoring if not already running
-    if (!this.priceAlertInterval) {
-      this.startPriceAlertMonitoring();
-    }
-    
-    return { success: true, alertId, symbol, targetPrice, direction };
-  }
-
-  removePriceAlert(alertId) {
-    if (this.priceAlerts.has(alertId)) {
-      this.priceAlerts.delete(alertId);
-      return { success: true };
-    }
-    return { success: false, error: 'Alert not found' };
-  }
-
-  getPriceAlerts() {
-    return Array.from(this.priceAlerts.entries()).map(([id, alert]) => ({
-      id,
-      ...alert
-    }));
-  }
-
-  async startPriceAlertMonitoring() {
-    this.priceAlertInterval = setInterval(async () => {
-      for (const [alertId, alert] of this.priceAlerts) {
-        try {
-          const currentPrice = await this.jupiter.getPrice(alert.symbol);
-          
-          let triggered = false;
-          if (alert.direction === 'above' && currentPrice >= alert.targetPrice) {
-            triggered = true;
-          } else if (alert.direction === 'below' && currentPrice <= alert.targetPrice) {
-            triggered = true;
-          }
-          
-          if (triggered) {
-            const msg = `🔔 PRICE ALERT! ${alert.symbol} is now $${currentPrice.toFixed(2)} (${alert.direction} $${alert.targetPrice})`;
-            await this.notify(msg);
-            this.priceAlerts.delete(alertId);
-          }
-        } catch (e) {
-          // Skip on error
-        }
-      }
-      
-      // Stop monitoring if no alerts
-      if (this.priceAlerts.size === 0 && this.priceAlertInterval) {
-        clearInterval(this.priceAlertInterval);
-        this.priceAlertInterval = null;
-      }
-    }, 30000); // Check every 30 seconds
-  }
-
-  // ==================== LIVE PRICE ====================
-
-  async getLivePrice(symbol) {
-    return await this.jupiter.getPrice(symbol);
+    // Paper trading or no wallet connected
+    return {
+      mode: this.isPaperTrading ? 'paper' : 'no-wallet',
+      address: phantomStatus.address || null,
+      sol: this.config.paperBalance || 10000,
+      usd: (this.config.paperBalance || 10000) * await this.jupiter.getPrice('SOL')
+    };
   }
 
   // ==================== POSITIONS ====================
@@ -370,19 +231,6 @@ class SolPerpsBot {
     this.isRunning = false;
     this.signals.stop();
     console.log('✅ Bot stopped');
-  }
-
-  // ==================== WALLET ====================
-
-  getWalletAddress() {
-    return this.wallet.publicKey.toString();
-  }
-
-  exportWallet() {
-    return {
-      publicKey: this.wallet.publicKey.toString(),
-      secretKey: Array.from(this.wallet.secretKey)
-    };
   }
 }
 
