@@ -16,6 +16,15 @@ class TelegramHandler {
       this.telegram = new TelegramBot(token, { polling: false });
       console.log('✅ Telegram bot initialized');
       this.setupCommands();
+      
+      // Try polling, but don't crash if it fails
+      try {
+        this.telegram.on('polling_error', (error) => {
+          console.log('Polling error:', error.message);
+        });
+      } catch (e) {
+        // Ignore polling setup errors
+      }
     } catch (error) {
       console.log('⚠️ Telegram bot not available:', error.message);
     }

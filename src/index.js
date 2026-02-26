@@ -1,4 +1,5 @@
 require('dotenv').config();
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
@@ -6,6 +7,18 @@ const { JupiterService } = require('./services/jupiter');
 const { PositionManager } = require('./services/positionManager');
 const { SignalEngine } = require('./strategies/signalEngine');
 const { TelegramHandler } = require('./handlers/telegram');
+
+const PORT = process.env.PORT || 3000;
+
+// Create simple HTTP server to keep process alive on Render
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('SOLPERPS Bot is running!\n');
+});
+
+server.listen(PORT, () => {
+  console.log(`🌐 HTTP server running on port ${PORT}`);
+});
 
 function generateWallet() {
   const keypair = Keypair.generate();
