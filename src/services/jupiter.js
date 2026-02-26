@@ -120,6 +120,7 @@ class JupiterService {
   async getFreshPrice(symbol) {
     this.quoteCache.delete(symbol);
     return await this.getPrice(symbol);
+  }
 
   // ==================== POSITIONS ====================
 
