@@ -113,37 +113,31 @@ class TelegramHandler {
 
   sendHelp(chatId) {
     const help = `
-🤖 *SOLPERPS Bot Commands*
+🤖 *SOLPERPS Bot*
 
-*Trading*
-/long SYMBOL SIZE - Open long position
-/short SYMBOL SIZE - Open short position
-/close ID - Close position by ID
+*📈 Trading*
+/long SOL 10 — Open long 10 SOL
+/short SOL 5 — Open short 5 SOL
+/close 12345 — Close position
 
-*Prices*
-/price - Get SOL price
-/price SYMBOL - Get price of any token
+*💵 Prices*
+/price — SOL price
+/price BTC — Any token price
 
-*Alerts*
-/alert SYM ABOVE PRICE - Alert when price goes above
-/alert SYM BELOW PRICE - Alert when price goes below
-/alerts - View active alerts
+*🔔 Alerts*
+/alert SOL above 100 — Alert when SOL > $100
+/alert SOL below 80 — Alert when SOL < $80
+/alerts — View all alerts
 
-*Management*
-/positions - View open positions
-/balance - Check balance
-/wallet - Get wallet address
-/tpsl ID TP SL - Set take profit & stop loss %
-/transfer ADDRESS AMOUNT - Transfer funds
+*💼 Management*
+/positions — Open positions
+/balance — Your balance
+/wallet — Wallet address
+/tpsl 12345 10 5 — 10% TP, 5% SL
 
-*Info*
-/status - Bot status
-/help - Show this help
-
-*Examples*
-/long SOL 10 - Long 10 SOL
-/price SOL - Get SOL price
-/alert SOL above 100 - Alert when SOL > $100
+*ℹ️ Info*
+/status — Bot status
+/help — This message
 `;
     this.sendMessage(chatId, help, { parse_mode: 'Markdown' });
   }
