@@ -123,6 +123,7 @@ class TelegramHandler {
 *💵 Prices*
 /price — SOL price
 /price BTC — Any token price
+/refresh — Force refresh price
 
 *🔔 Alerts*
 /alert SOL above 100 — Alert when SOL > $100
@@ -262,6 +263,19 @@ Mode: ${result.mode.toUpperCase()}`;
       } else if (text.startsWith('/price')) {
         const price = await this.bot.getLivePrice('SOL');
         this.sendMessage(chatId, `💵 SOL Price: $${price.toFixed(2)}`);
+      } else if (text.startsWith('/refresh ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 2) {
+          const symbol = parts[1].toUpperCase();
+          const price = await this.bot.jupiter.getFreshPrice(symbol);
+          this.sendMessage(chatId, `🔄 ${symbol} Price (refreshed): $${price.toFixed(2)}`);
+        } else {
+          const price = await this.bot.jupiter.getFreshPrice('SOL');
+          this.sendMessage(chatId, `🔄 SOL Price (refreshed): $${price.toFixed(2)}`);
+        }
+      } else if (text.startsWith('/refresh')) {
+        const price = await this.bot.jupiter.getFreshPrice('SOL');
+        this.sendMessage(chatId, `🔄 SOL Price (refreshed): $${price.toFixed(2)}`);
       } else if (text.startsWith('/alert ')) {
         const parts = text.split(' ');
         if (parts.length >= 4) {

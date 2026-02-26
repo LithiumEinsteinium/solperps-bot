@@ -108,18 +108,18 @@ class JupiterService {
     
     // Default fallback prices
     const defaultPrices = {
-      'SOL': 85.78,
-      'BTC': 68000,
-      'ETH': 2025,
-      'BONK': 0.000025,
-      'WIF': 0.25,
-      'POPCAT': 0.35,
-      'MEW': 0.008,
-      'SOLVE': 0.12,
+      'SOL': 86.00,
+      'BTC': 67500,
+      'ETH': 2050,
     };
     
     return defaultPrices[symbol] || 1;
   }
+
+  // Force refresh price (bypass cache)
+  async getFreshPrice(symbol) {
+    this.quoteCache.delete(symbol);
+    return await this.getPrice(symbol);
 
   // ==================== POSITIONS ====================
 
