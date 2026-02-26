@@ -59,7 +59,8 @@ class SolPerpsBot {
     this.priceAlerts = new Map();
     this.priceAlertInterval = null;
     
-    this.isPaperTrading = config.paperTrading || true;
+    // Parse paper trading - default to true if not set
+    this.isPaperTrading = config.paperTrading === true || config.paperTrading === 'true';
     this.isRunning = false;
   }
 
