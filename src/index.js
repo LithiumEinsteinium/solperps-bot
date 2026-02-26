@@ -99,7 +99,7 @@ class SolPerpsBot {
     
     // Load existing wallet or generate new one
     // No bot wallet - users connect their own
-    console.log(`👛 Wallet: ${this.wallet.publicKey.toString()}`);
+    // No bot wallet
     
     this.isPaperTrading = config.paperTrading || true;
     this.isRunning = false;
