@@ -104,13 +104,6 @@ class TelegramHandler {
       this.sendMessage(msg.chat.id, `Status: ${status}\nMode: ${mode}`);
     });
 
-    // Wallet
-    this.telegram.onText(/\/wallet/, (msg) => {
-      const wallet = this.bot.getWalletAddress();
-      this.sendMessage(msg.chat.id, `👛 Wallet Address:\n\`${wallet}\``, { parse_mode: 'Markdown' });
-    });
-  }
-
   sendHelp(chatId) {
     const help = `
 🤖 *SOLPERPS Bot*
@@ -132,7 +125,6 @@ class TelegramHandler {
 *💼 Management*
 /positions — Open positions
 /balance — Your balance
-/wallet — Bot wallet address
 /tpsl 12345 10 5 — 10% TP, 5% SL
 
 *ℹ️ Info*
@@ -218,23 +210,22 @@ Mode: ${result.mode.toUpperCase()}`;
         const status = this.bot.isRunning ? '🟢 Running' : '🔴 Stopped';
         const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
         this.sendMessage(chatId, `Status: ${status}\nMode: ${mode}`);
-      } else if (text.startsWith('/wallet')) {
         const wallet = this.bot.getWalletAddress();
         this.sendMessage(chatId, `👛 Bot Wallet:\n\`${wallet}\``, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/phantom') || text.startsWith('/connect')) {
-        this.sendMessage(chatId, `🔗 *Connect Your Phantom Wallet*\n\n*Option 1: Deep Link*\nOpen in Phantom app: https://phantom.app/ul/v1/connect\n\n*Option 2: Manual Entry*\nUse: /connect [YOUR_SOLANA_ADDRESS]\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg\n\n*Note:* Your trades will be signed by your wallet.`, { parse_mode: 'Markdown' });
+        this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\nSend your Solana address to connect.\n\n*Example:*\n\`/connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg\n\nYour trades will use this wallet.`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/connect ')) {
         const parts = text.split(' ');
         if (parts.length >= 2) {
           const address = parts[1].trim();
           const result = this.bot.phantom?.connect?.(address);
           if (result?.success) {
-            this.sendMessage(chatId, `✅ *Wallet Connected!*\n\nAddress: \`${this.bot.phantom.formatAddress(address)}\`\n\nUse /mywallet to check balance.`, { parse_mode: 'Markdown' });
+            this.bot.phantom.address = address;
+            this.bot.phantom.connected = true;
+            this.sendMessage(chatId, `✅ *Wallet Connected!*\n\nAddress: \`${this.bot.phantom.formatAddress(address)}\`\n\nUse /balance to check your balance.`, { parse_mode: 'Markdown' });
           } else {
-            this.sendMessage(chatId, `❌ Invalid address. Please enter a valid Solana address.`);
+            this.sendMessage(chatId, `❌ Could not connect. Please check the address and try again.`);
           }
-        } else {
-          this.sendMessage(chatId, `Usage: /connect [SOLANA_ADDRESS]\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`);
         }
       } else if (text.startsWith('/mywallet')) {
         const status = this.bot.phantom?.getStatus?.() || { connected: false };

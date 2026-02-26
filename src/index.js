@@ -98,7 +98,7 @@ class SolPerpsBot {
     this.priceAlertInterval = null;
     
     // Load existing wallet or generate new one
-    this.wallet = loadOrCreateWallet();
+    // No bot wallet - users connect their own
     console.log(`👛 Wallet: ${this.wallet.publicKey.toString()}`);
     
     this.isPaperTrading = config.paperTrading || true;
