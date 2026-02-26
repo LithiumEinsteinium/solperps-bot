@@ -179,6 +179,43 @@ class TelegramHandler {
       }
     }
   }
+
+  // Handle incoming webhook updates
+  async handleUpdate(update) {
+    if (!this.telegram) return;
+    
+    if (update.message) {
+      const msg = update.message;
+      const text = msg.text || '';
+      const chatId = msg.chat.id;
+      
+      // Simple command routing
+      if (text.startsWith('/help') || text.startsWith('/start')) {
+        this.onHelp({ chat: { id: chatId } });
+      } else if (text.startsWith('/balance')) {
+        const balance = await this.bot.getBalance();
+        this.sendMessage(chatId, `💰 Balance:\nSOL: ${balance.sol.toFixed(4)}\nUSD: $${balance.usd.toFixed(2)}`);
+      } else if (text.startsWith('/positions')) {
+        const positions = await this.bot.getPositions();
+        if (positions.length === 0) {
+          this.sendMessage(chatId, '📊 No open positions');
+        } else {
+          let msgText = '📊 Open Positions:\n\n';
+          positions.forEach(p => {
+            msgText += `${p.side.toUpperCase()} ${p.size} ${p.symbol} @ $${p.entryPrice.toFixed(2)}\nID: ${p.id}\n\n`;
+          });
+          this.sendMessage(chatId, msgText);
+        }
+      } else if (text.startsWith('/status')) {
+        const status = this.bot.isRunning ? '🟢 Running' : '🔴 Stopped';
+        const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
+        this.sendMessage(chatId, `Status: ${status}\nMode: ${mode}`);
+      } else if (text.startsWith('/wallet')) {
+        const wallet = this.bot.getWalletAddress();
+        this.sendMessage(chatId, `👛 Wallet Address:\n\`${wallet}\``, { parse_mode: 'Markdown' });
+      }
+    }
+  }
 }
 
 module.exports = { TelegramHandler };

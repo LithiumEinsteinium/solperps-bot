@@ -10,10 +10,31 @@ const { TelegramHandler } = require('./handlers/telegram');
 
 const PORT = process.env.PORT || 3000;
 
-// Create simple HTTP server to keep process alive on Render
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('SOLPERPS Bot is running!\n');
+// Store bot instance globally for webhook access
+let botInstance = null;
+
+// Create HTTP server to handle Telegram webhooks
+const server = http.createServer(async (req, res) => {
+  // Handle webhook
+  if (req.method === 'POST' && req.url === '/webhook') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const update = JSON.parse(body);
+        if (botInstance && botInstance.telegram && botInstance.telegram.handleUpdate) {
+          await botInstance.telegram.handleUpdate(update);
+        }
+      } catch (e) {
+        console.error('Webhook error:', e.message);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{}');
+    });
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('SOLPERPS Bot is running!\n');
+  }
 });
 
 server.listen(PORT, () => {
@@ -286,3 +307,35 @@ class SolPerpsBot {
 }
 
 module.exports = { SolPerpsBot };
+
+// ==================== MAIN ====================
+
+if (require.main === module) {
+  (async () => {
+    const config = {
+      rpcUrl: process.env.RPC_URL || 'https://api.mainnet-beta.solana.com',
+      paperTrading: process.env.PAPER_TRADING === 'true',
+      autoTrade: process.env.AUTO_TRADE === 'true',
+      jupiterConfig: {},
+      positionConfig: {
+        storagePath: process.env.POSITION_STORAGE || './data/positions.json'
+      },
+      signalConfig: {
+        strategy: process.env.STRATEGY || 'ma-cross',
+        autoExecute: process.env.AUTO_EXECUTE === 'true',
+        symbol: process.env.SYMBOL || 'SOL',
+        positionSize: parseFloat(process.env.POSITION_SIZE) || 10,
+        leverage: parseFloat(process.env.LEVERAGE) || 1,
+        interval: 60000
+      },
+      telegram: {
+        token: process.env.TELEGRAM_BOT_TOKEN,
+        chatId: process.env.TELEGRAM_CHAT_ID
+      }
+    };
+    
+    const bot = new SolPerpsBot(config);
+    botInstance = bot;
+    await bot.start();
+  })();
+}
