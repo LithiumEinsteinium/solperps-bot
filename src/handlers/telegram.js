@@ -120,6 +120,15 @@ class TelegramHandler {
 /short SYMBOL SIZE - Open short position
 /close ID - Close position by ID
 
+*Prices*
+/price - Get SOL price
+/price SYMBOL - Get price of any token
+
+*Alerts*
+/alert SYM ABOVE PRICE - Alert when price goes above
+/alert SYM BELOW PRICE - Alert when price goes below
+/alerts - View active alerts
+
 *Management*
 /positions - View open positions
 /balance - Check balance
@@ -133,15 +142,20 @@ class TelegramHandler {
 
 *Examples*
 /long SOL 10 - Long 10 SOL
-/short BTC 0.5 - Short 0.5 BTC
-/tpsl 12345 10 5 - Set 10% TP, 5% SL
+/price SOL - Get SOL price
+/alert SOL above 100 - Alert when SOL > $100
 `;
     this.sendMessage(chatId, help, { parse_mode: 'Markdown' });
   }
 
   formatTradeResult(result) {
     if (result.success) {
-      return `✅ Position opened!\n${result.mode.toUpperCase()} TRADING\n${result.position.side.toUpperCase()} ${result.position.size} ${result.position.symbol}`;
+      const p = result.position;
+      const entry = p.entryPrice ? `$${p.entryPrice.toFixed(2)}` : 'N/A';
+      return `✅ Position Opened!
+${p.side.toUpperCase()} ${p.size} ${p.symbol}
+Entry: ${entry}
+Mode: ${result.mode.toUpperCase()}`;
     }
     return `❌ Failed: ${result.error}`;
   }
@@ -241,6 +255,46 @@ class TelegramHandler {
           this.sendMessage(chatId, this.formatCloseResult(result));
         } else {
           this.sendMessage(chatId, 'Usage: /close POSITION_ID');
+        }
+      } else if (text.startsWith('/price ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 2) {
+          const symbol = parts[1].toUpperCase();
+          const price = await this.bot.getLivePrice(symbol);
+          this.sendMessage(chatId, `💵 ${symbol} Price: $${price.toFixed(2)}`);
+        } else {
+          this.sendMessage(chatId, 'Usage: /price SYMBOL\nExample: /price SOL');
+        }
+      } else if (text.startsWith('/price')) {
+        const price = await this.bot.getLivePrice('SOL');
+        this.sendMessage(chatId, `💵 SOL Price: $${price.toFixed(2)}`);
+      } else if (text.startsWith('/alert ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 4) {
+          const symbol = parts[1].toUpperCase();
+          const direction = parts[2].toLowerCase();
+          const targetPrice = parseFloat(parts[3]);
+          
+          if (!['above', 'below'].includes(direction)) {
+            this.sendMessage(chatId, 'Usage: /alert SYMBOL ABOVE/BELOW PRICE\nExample: /alert SOL above 100');
+            return;
+          }
+          
+          const result = this.bot.setPriceAlert(symbol, targetPrice, direction, chatId);
+          this.sendMessage(chatId, `🔔 Price Alert Set!\n${symbol} ${direction} $${targetPrice}\nAlert ID: ${result.alertId}`);
+        } else {
+          this.sendMessage(chatId, 'Usage: /alert SYMBOL ABOVE/BELOW PRICE\nExample: /alert SOL above 100');
+        }
+      } else if (text.startsWith('/alerts')) {
+        const alerts = this.bot.getPriceAlerts();
+        if (alerts.length === 0) {
+          this.sendMessage(chatId, '🔔 No active price alerts');
+        } else {
+          let msg = '🔔 Active Price Alerts:\n\n';
+          alerts.forEach(a => {
+            msg += `ID: ${a.id}\n${a.symbol} ${a.direction} $${a.targetPrice}\n\n`;
+          });
+          this.sendMessage(chatId, msg);
         }
       }
     }

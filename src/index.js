@@ -89,6 +89,10 @@ class SolPerpsBot {
     this.signals = new SignalEngine(this, config.signalConfig);
     this.telegram = new TelegramHandler(this, config.telegram);
     
+    // Price alerts
+    this.priceAlerts = new Map();
+    this.priceAlertInterval = null;
+    
     // Load existing wallet or generate new one
     this.wallet = loadOrCreateWallet();
     console.log(`👛 Wallet: ${this.wallet.publicKey.toString()}`);
@@ -262,6 +266,78 @@ class SolPerpsBot {
     } catch (error) {
       return { success: false, error: error.message };
     }
+  }
+
+  // ==================== PRICE ALERTS ====================
+
+  setPriceAlert(symbol, targetPrice, direction, chatId) {
+    const alertId = Date.now().toString();
+    this.priceAlerts.set(alertId, {
+      symbol,
+      targetPrice,
+      direction, // 'above' or 'below'
+      chatId,
+      createdAt: new Date().toISOString()
+    });
+    
+    // Start monitoring if not already running
+    if (!this.priceAlertInterval) {
+      this.startPriceAlertMonitoring();
+    }
+    
+    return { success: true, alertId, symbol, targetPrice, direction };
+  }
+
+  removePriceAlert(alertId) {
+    if (this.priceAlerts.has(alertId)) {
+      this.priceAlerts.delete(alertId);
+      return { success: true };
+    }
+    return { success: false, error: 'Alert not found' };
+  }
+
+  getPriceAlerts() {
+    return Array.from(this.priceAlerts.entries()).map(([id, alert]) => ({
+      id,
+      ...alert
+    }));
+  }
+
+  async startPriceAlertMonitoring() {
+    this.priceAlertInterval = setInterval(async () => {
+      for (const [alertId, alert] of this.priceAlerts) {
+        try {
+          const currentPrice = await this.jupiter.getPrice(alert.symbol);
+          
+          let triggered = false;
+          if (alert.direction === 'above' && currentPrice >= alert.targetPrice) {
+            triggered = true;
+          } else if (alert.direction === 'below' && currentPrice <= alert.targetPrice) {
+            triggered = true;
+          }
+          
+          if (triggered) {
+            const msg = `🔔 PRICE ALERT! ${alert.symbol} is now $${currentPrice.toFixed(2)} (${alert.direction} $${alert.targetPrice})`;
+            await this.notify(msg);
+            this.priceAlerts.delete(alertId);
+          }
+        } catch (e) {
+          // Skip on error
+        }
+      }
+      
+      // Stop monitoring if no alerts
+      if (this.priceAlerts.size === 0 && this.priceAlertInterval) {
+        clearInterval(this.priceAlertInterval);
+        this.priceAlertInterval = null;
+      }
+    }, 30000); // Check every 30 seconds
+  }
+
+  // ==================== LIVE PRICE ====================
+
+  async getLivePrice(symbol) {
+    return await this.jupiter.getPrice(symbol);
   }
 
   // ==================== POSITIONS ====================

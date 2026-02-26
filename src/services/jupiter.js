@@ -41,17 +41,19 @@ class JupiterService {
       return market.price;
     }
     
-    // Try fetching from Jupiter API
+    // Try fetching live price from Jupiter API
     try {
       const response = await axios.get(`${this.endpoint}/v6/quote`, {
         params: {
           inputMint: this.getMint(symbol),
           outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-          amount: 1e6, // 1 USDC
+          amount: 1e9, // 1 SOL
           slippage: 1
         }
       });
-      return parseFloat(response.data.outAmount) / 1e6;
+      const price = parseFloat(response.data.outAmount) / 1e6;
+      this.quoteCache.set(symbol, price);
+      return price;
     } catch (error) {
       console.log(`⚠️ Using cached price for ${symbol}`);
       return this.quoteCache.get(symbol) || 100;
