@@ -199,7 +199,7 @@ Mode: ${result.mode.toUpperCase()}`;
       
       // Simple command routing
       if (text.startsWith('/help') || text.startsWith('/start')) {
-        this.onHelp({ chat: { id: chatId } });
+        this.sendHelp(chatId);
       } else if (text.startsWith('/balance')) {
         const balance = await this.bot.getBalance();
         this.sendMessage(chatId, `💰 Balance:\nSOL: ${balance.sol.toFixed(4)}\nUSD: $${balance.usd.toFixed(2)}`);
@@ -287,6 +287,30 @@ Mode: ${result.mode.toUpperCase()}`;
           let msg = '🔔 Active Price Alerts:\n\n';
           alerts.forEach(a => {
             msg += `ID: ${a.id}\n${a.symbol} ${a.direction} $${a.targetPrice}\n\n`;
+          });
+          this.sendMessage(chatId, msg);
+        }
+      } else if (text.startsWith('/clearalert ') || text.startsWith('/clear ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 2) {
+          const alertId = parts[1];
+          const result = this.bot.removePriceAlert(alertId);
+          if (result.success) {
+            this.sendMessage(chatId, `✅ Alert removed`);
+          } else {
+            this.sendMessage(chatId, `❌ ${result.error}`);
+          }
+        } else {
+          this.sendMessage(chatId, 'Usage: /clearalert ALERT_ID');
+        }
+      } else if (text.startsWith('/clear')) {
+        const alerts = this.bot.getPriceAlerts();
+        if (alerts.length === 0) {
+          this.sendMessage(chatId, '🔔 No alerts to clear');
+        } else {
+          let msg = 'Use /clearalert ID to remove:\n\n';
+          alerts.forEach(a => {
+            msg += `/clearalert ${a.id} — ${a.symbol} ${a.direction} $${a.targetPrice}\n`;
           });
           this.sendMessage(chatId, msg);
         }
