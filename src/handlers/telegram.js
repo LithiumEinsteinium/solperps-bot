@@ -123,17 +123,16 @@ class TelegramHandler {
 *💵 Prices*
 /price — SOL price
 /price BTC — Any token price
-/refresh — Force refresh price
 
-*🔔 Alerts*
-/alert SOL above 100 — Alert when SOL > $100
-/alert SOL below 80 — Alert when SOL < $80
-/alerts — View all alerts
+*👛 Phantom Wallet*
+/phantom — Connect your Phantom
+/mywallet — Check Phantom status
+/disconnect — Disconnect wallet
 
 *💼 Management*
 /positions — Open positions
 /balance — Your balance
-/wallet — Wallet address
+/wallet — Bot wallet address
 /tpsl 12345 10 5 — 10% TP, 5% SL
 
 *ℹ️ Info*
@@ -221,7 +220,20 @@ Mode: ${result.mode.toUpperCase()}`;
         this.sendMessage(chatId, `Status: ${status}\nMode: ${mode}`);
       } else if (text.startsWith('/wallet')) {
         const wallet = this.bot.getWalletAddress();
-        this.sendMessage(chatId, `👛 Wallet Address:\n\`${wallet}\``, { parse_mode: 'Markdown' });
+        this.sendMessage(chatId, `👛 Bot Wallet:\n\`${wallet}\``, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/phantom') || text.startsWith('/connect')) {
+        const phantomUrl = 'https://phantom.app/ul/v1/connect';
+        this.sendMessage(chatId, `🔗 *Connect Your Phantom Wallet*\n\nUse this to connect your own wallet instead of using the bot's wallet.\n\n1. Click: ${phantomUrl}\n2. Connect Phantom\n3. Return and use /mywallet to verify\n\n*Note:* Your trades will be signed by your wallet.`, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/mywallet')) {
+        const status = this.bot.phantom?.getStatus?.() || { connected: false };
+        if (status.connected) {
+          this.sendMessage(chatId, `✅ *Phantom Connected!*\n\nAddress: \`${status.publicKey}\`\nBalance: ${status.balance?.toFixed(4) || 0} SOL`, { parse_mode: 'Markdown' });
+        } else {
+          this.sendMessage(chatId, `❌ No Phantom connected.\n\nUse /phantom to connect your wallet.`);
+        }
+      } else if (text.startsWith('/disconnect')) {
+        this.bot.phantom?.disconnect?.();
+        this.sendMessage(chatId, '✅ Wallet disconnected.');
       } else if (text.startsWith('/long ')) {
         const parts = text.split(' ');
         if (parts.length >= 3) {

@@ -7,6 +7,7 @@ const { JupiterService } = require('./services/jupiter');
 const { PositionManager } = require('./services/positionManager');
 const { SignalEngine } = require('./strategies/signalEngine');
 const { TelegramHandler } = require('./handlers/telegram');
+const { PhantomWalletManager } = require('./services/phantomWallet');
 
 const PORT = process.env.PORT || 3000;
 
@@ -88,6 +89,9 @@ class SolPerpsBot {
     this.positions = new PositionManager(this, config.positionConfig);
     this.signals = new SignalEngine(this, config.signalConfig);
     this.telegram = new TelegramHandler(this, config.telegram);
+    
+    // Phantom wallet (user-connected)
+    this.phantom = new PhantomWalletManager();
     
     // Price alerts
     this.priceAlerts = new Map();
