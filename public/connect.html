@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Wallet - SolPerps Bot</title>
+  <script src="https://unpkg.com/@phantom/tg-connect-sdk@0.1.4/dist/iife.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    p { color: #888; margin-bottom: 24px; }
+    .btn {
+      background: #8B5CF6;
+      color: #fff;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 16px;
+    }
+    .btn:hover { background: #7C3AED; }
+    .btn:disabled { background: #444; cursor: not-allowed; }
+    .result {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      word-break: break-all;
+      font-size: 14px;
+      display: none;
+    }
+    .result.show { display: block; }
+    .success { color: #22C55E; }
+    .error { color: #EF4444; }
+    .manual {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+    .manual summary { cursor: pointer; color: #666; font-size: 14px; }
+    .manual input {
+      width: 100%;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 SolPerps Bot</h1>
+    <p>Connect your Phantom wallet</p>
+    
+    <button id="connectBtn" class="btn">Connect Phantom</button>
+    
+    <div id="result" class="result"></div>
+    
+    <details class="manual">
+      <summary>Can't connect? Enter address manually</summary>
+      <input type="text" id="manualAddress" placeholder="Your Solana address..." />
+    </details>
+  </div>
+
+  <script>
+    const resultEl = document.getElementById('result');
+    const btn = document.getElementById('connectBtn');
+    
+    // Check if Phantom is installed
+    const isPhantomInstalled = window.phantom?.solana?.isPhantom;
+    
+    if (!isPhantomInstalled) {
+      btn.textContent = 'Phantom Not Found';
+      btn.disabled = true;
+      resultEl.innerHTML = '<span class="error">Please install Phantom wallet first</span>';
+      resultEl.classList.add('show');
+    }
+    
+    btn.addEventListener('click', async () => {
+      try {
+        resultEl.innerHTML = 'Connecting...';
+        resultEl.classList.add('show');
+        
+        const response = await window.phantom.solana.connect();
+        const address = response.publicKey.toString();
+        
+        resultEl.innerHTML = `
+          <div class="success">✅ Connected!</div>
+          <div style="margin-top: 8px; font-family: monospace;">${address}</div>
+          <div style="margin-top: 12px; color: #666; font-size: 12px;">
+            Copy this address to Telegram: /connect ${address}
+          </div>
+        `;
+        
+        // Also try to copy to clipboard
+        await navigator.clipboard.writeText(address);
+      } catch (err) {
+        resultEl.innerHTML = `<span class="error">❌ ${err.message || 'Connection failed'}</span>`;
+      }
+    });
+    
+    // Manual entry
+    document.getElementById('manualAddress').addEventListener('input', async (e) => {
+      const addr = e.target.value.trim();
+      if (addr.length > 30) {
+        try {
+          await navigator.clipboard.writeText(`/connect ${addr}`);
+          resultEl.innerHTML = '✅ Copied! Paste in Telegram: <br/>/connect ' + addr;
+          resultEl.classList.add('show');
+        } catch {}
+      }
+    });
+  </script>
+</body>
+</html>

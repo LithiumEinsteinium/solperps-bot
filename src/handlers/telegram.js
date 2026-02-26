@@ -213,7 +213,7 @@ Mode: ${result.mode.toUpperCase()}`;
         const wallet = this.bot.getWalletAddress();
         this.sendMessage(chatId, `👛 Bot Wallet:\n\`${wallet}\``, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/phantom') || text.startsWith('/connect')) {
-        this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\nSend your Solana address to connect.\n\n*Example:*\n\`/connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg\n\nYour trades will use this wallet.`, { parse_mode: 'Markdown' });
+        this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\n*Option 1: Web Page*\n${process.env.APP_URL || 'https://solperps-bot.onrender.com'}/connect.html\n\n*Option 2: Manual*\nSend: /connect YOUR_ADDRESS\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/connect ')) {
         const parts = text.split(' ');
         if (parts.length >= 2) {
