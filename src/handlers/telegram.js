@@ -213,6 +213,35 @@ class TelegramHandler {
       } else if (text.startsWith('/wallet')) {
         const wallet = this.bot.getWalletAddress();
         this.sendMessage(chatId, `👛 Wallet Address:\n\`${wallet}\``, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/long ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 3) {
+          const symbol = parts[1].toUpperCase();
+          const size = parseFloat(parts[2]);
+          const result = await this.bot.openPosition({ symbol, side: 'long', size });
+          this.sendMessage(chatId, this.formatTradeResult(result));
+        } else {
+          this.sendMessage(chatId, 'Usage: /long SYMBOL SIZE\nExample: /long SOL 10');
+        }
+      } else if (text.startsWith('/short ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 3) {
+          const symbol = parts[1].toUpperCase();
+          const size = parseFloat(parts[2]);
+          const result = await this.bot.openPosition({ symbol, side: 'short', size });
+          this.sendMessage(chatId, this.formatTradeResult(result));
+        } else {
+          this.sendMessage(chatId, 'Usage: /short SYMBOL SIZE\nExample: /short SOL 5');
+        }
+      } else if (text.startsWith('/close ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 2) {
+          const positionId = parts[1];
+          const result = await this.bot.closePosition(positionId);
+          this.sendMessage(chatId, this.formatCloseResult(result));
+        } else {
+          this.sendMessage(chatId, 'Usage: /close POSITION_ID');
+        }
       }
     }
   }
