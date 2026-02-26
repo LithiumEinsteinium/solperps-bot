@@ -181,28 +181,34 @@ class SolPerpsBot {
   // ==================== BALANCE ====================
 
   async getBalance() {
-    // Check if user has connected their wallet
-    const phantomStatus = this.phantom.getStatus();
-    
-    if (phantomStatus.connected && !this.isPaperTrading) {
-      // Fetch real balance from connected wallet
-      await this.phantom.fetchBalance();
-      const status = this.phantom.getStatus();
-      return {
-        mode: 'live',
-        address: status.address,
-        sol: status.balance,
-        usd: status.balance * await this.jupiter.getPrice('SOL')
-      };
-    }
+    try {
+      // Check if user has connected their wallet
+      const phantomStatus = this.phantom.getStatus();
+      
+      if (phantomStatus.connected && !this.isPaperTrading) {
+        // Fetch real balance from connected wallet
+        await this.phantom.fetchBalance();
+        const status = this.phantom.getStatus();
+        const solPrice = await this.jupiter.getPrice('SOL').catch(() => 0);
+        return {
+          mode: 'live',
+          address: status.address,
+          sol: status.balance || 0,
+          usd: (status.balance || 0) * solPrice
+        };
+      }
 
-    // Paper trading or no wallet connected
-    return {
-      mode: this.isPaperTrading ? 'paper' : 'no-wallet',
-      address: phantomStatus.address || null,
-      sol: this.config.paperBalance || 10000,
-      usd: (this.config.paperBalance || 10000) * await this.jupiter.getPrice('SOL')
-    };
+      // Default to paper balance
+      const solPrice = await this.jupiter.getPrice('SOL').catch(() => 86);
+      return {
+        mode: 'paper',
+        sol: 10000,
+        usd: 10000 * solPrice
+      };
+    } catch (error) {
+      console.error('Balance error:', error.message);
+      return { mode: 'error', sol: 0, usd: 0 };
+    }
   }
 
   // ==================== POSITIONS ====================
