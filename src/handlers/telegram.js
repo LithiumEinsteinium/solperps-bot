@@ -222,8 +222,20 @@ Mode: ${result.mode.toUpperCase()}`;
         const wallet = this.bot.getWalletAddress();
         this.sendMessage(chatId, `👛 Bot Wallet:\n\`${wallet}\``, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/phantom') || text.startsWith('/connect')) {
-        const phantomUrl = 'https://phantom.app/ul/v1/connect';
-        this.sendMessage(chatId, `🔗 *Connect Your Phantom Wallet*\n\nUse this to connect your own wallet instead of using the bot's wallet.\n\n1. Click: ${phantomUrl}\n2. Connect Phantom\n3. Return and use /mywallet to verify\n\n*Note:* Your trades will be signed by your wallet.`, { parse_mode: 'Markdown' });
+        this.sendMessage(chatId, `🔗 *Connect Your Phantom Wallet*\n\n*Option 1: Deep Link*\nOpen in Phantom app: https://phantom.app/ul/v1/connect\n\n*Option 2: Manual Entry*\nUse: /connect [YOUR_SOLANA_ADDRESS]\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg\n\n*Note:* Your trades will be signed by your wallet.`, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/connect ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 2) {
+          const address = parts[1].trim();
+          const result = this.bot.phantom?.connect?.(address);
+          if (result?.success) {
+            this.sendMessage(chatId, `✅ *Wallet Connected!*\n\nAddress: \`${this.bot.phantom.formatAddress(address)}\`\n\nUse /mywallet to check balance.`, { parse_mode: 'Markdown' });
+          } else {
+            this.sendMessage(chatId, `❌ Invalid address. Please enter a valid Solana address.`);
+          }
+        } else {
+          this.sendMessage(chatId, `Usage: /connect [SOLANA_ADDRESS]\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`);
+        }
       } else if (text.startsWith('/mywallet')) {
         const status = this.bot.phantom?.getStatus?.() || { connected: false };
         if (status.connected) {

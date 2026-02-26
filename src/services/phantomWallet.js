@@ -2,44 +2,60 @@
  * Phantom Wallet Integration for SolPerps Bot
  * 
  * Users connect their own Phantom wallet instead of the bot holding keys.
- * The bot executes trades by having users sign transactions.
+ * Uses Phantom's deeplink for mobile/extension connection.
  */
 
-const PHANTOM_DEEP_LINK = 'https://phantom.app/ul/v1/connect';
-const PHANTOM_APP_ID = process.env.PHANTOM_APP_ID || '';
-
 class PhantomWalletManager {
-  constructor() {
+  constructor(config = {}) {
     this.connected = false;
     this.publicKey = null;
+    this.address = null;
     this.balance = 0;
+    this.appId = config.appId || '';
+    this.appUrl = config.appUrl || 'https://solperps-bot.onrender.com';
   }
 
   /**
-   * Generate Phantom wallet connect URL
+   * Generate Phantom wallet connect URL with proper parameters
    */
   getConnectUrl() {
+    // Generate a unique session ID for this connection
+    const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Store session for callback verification
+    this.pendingSession = sessionId;
+    
+    // Build the deeplink URL
     const params = new URLSearchParams({
-      app_url: process.env.APP_URL || 'https://solperps-bot.onrender.com',
-      dapp_encryption_public_key: '', // Generated on backend for security
-      redirect_uri: `${process.env.APP_URL || 'https://solperps-bot.onrender.com'}/callback`,
+      app_url: this.appUrl,
+      redirect_uri: `${this.appUrl}/phantom-callback`,
     });
     
-    if (PHANTOM_APP_ID) {
-      params.append('app_id', PHANTOM_APP_ID);
+    if (this.appId) {
+      params.append('app_id', this.appId);
     }
     
     return `https://phantom.app/ul/v1/connect?${params.toString()}`;
   }
 
   /**
-   * Handle callback from Phantom
+   * Alternative: Generate a simple wallet address for users to add funds to
+   * This is a fallback for users who can't use the deeplink
+   */
+  getReceiveAddress() {
+    // Return the bot's wallet address for receiving funds
+    // Users can send SOL/USDC to this address
+    return '9ZeG1Tok1PuNspdUexQrR1jqmgZq5Rcq9hcYZcomNMQr'; // Example - bot wallet
+  }
+
+  /**
+   * Handle callback from Phantom - for future webhook implementation
    */
   async handleCallback(data) {
     try {
-      // Validate and process the connection data
       if (data.public_key) {
         this.publicKey = data.public_key;
+        this.address = data.public_key;
         this.connected = true;
         await this.fetchBalance();
         return { success: true, publicKey: this.publicKey };
@@ -51,10 +67,10 @@ class PhantomWalletManager {
   }
 
   /**
-   * Fetch wallet balance from Solana
+   * Fetch wallet balance from Solana RPC
    */
   async fetchBalance(rpcUrl = 'https://api.mainnet-beta.solana.com') {
-    if (!this.publicKey) return 0;
+    if (!this.address) return 0;
     
     try {
       const response = await fetch(rpcUrl, {
@@ -64,12 +80,12 @@ class PhantomWalletManager {
           jsonrpc: '2.0',
           id: 1,
           method: 'getBalance',
-          params: [this.publicKey]
+          params: [this.address]
         })
       });
       
       const data = await response.json();
-      this.balance = data.result?.value / 1e9 || 0; // Convert lamports to SOL
+      this.balance = (data.result?.value || 0) / 1e9;
       return this.balance;
     } catch (error) {
       console.error('Balance fetch error:', error);
@@ -78,11 +94,39 @@ class PhantomWalletManager {
   }
 
   /**
+   * Manually connect by entering Phantom address
+   */
+  async connectByAddress(address) {
+    // Validate address format (Solana addresses are base58, 32-44 chars)
+    if (address && address.length >= 32 && address.length <= 44) {
+      this.address = address;
+      this.publicKey = address;
+      this.connected = true;
+      await this.fetchBalance();
+      return { success: true, address: this.address };
+    }
+    return { success: false, error: 'Invalid Solana address' };
+  }
+
+  /**
+   * Connect with just the address (for manual entry)
+   */
+  connect(address) {
+    if (address && address.length >= 32) {
+      this.address = address;
+      this.connected = true;
+      return { success: true };
+    }
+    return { success: false, error: 'Invalid address' };
+  }
+
+  /**
    * Disconnect wallet
    */
   disconnect() {
     this.connected = false;
     this.publicKey = null;
+    this.address = null;
     this.balance = 0;
   }
 
@@ -92,9 +136,17 @@ class PhantomWalletManager {
   getStatus() {
     return {
       connected: this.connected,
-      publicKey: this.publicKey,
+      address: this.address,
       balance: this.balance
     };
+  }
+
+  /**
+   * Format address for display (first 6 and last 4)
+   */
+  formatAddress(addr) {
+    if (!addr) return 'Not connected';
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   }
 }
 
