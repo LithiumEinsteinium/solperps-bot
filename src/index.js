@@ -231,6 +231,10 @@ class SolPerpsBot {
     console.log(`📢 Notification: ${message}`);
   }
 
+  getPriceAlerts() {
+    return Array.from(this.priceAlerts.values());
+  }
+
   // ==================== LIFECYCLE ====================
 
   async stop() {

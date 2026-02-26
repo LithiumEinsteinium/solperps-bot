@@ -185,13 +185,14 @@ Mode: ${result.mode.toUpperCase()}`;
   async handleUpdate(update) {
     if (!this.telegram) return;
     
-    if (update.message) {
-      const msg = update.message;
-      const text = msg.text || '';
-      const chatId = msg.chat.id;
-      
-      // Simple command routing
-      if (text.startsWith('/help') || text.startsWith('/start')) {
+    try {
+      if (update.message) {
+        const msg = update.message;
+        const text = msg.text || '';
+        const chatId = msg.chat.id;
+        
+        // Simple command routing
+        if (text.startsWith('/help') || text.startsWith('/start')) {
         this.sendHelp(chatId);
       } else if (text.startsWith('/balance')) {
         const balance = await this.bot.getBalance();
@@ -269,13 +270,13 @@ Mode: ${result.mode.toUpperCase()}`;
         const parts = text.split(' ');
         if (parts.length >= 2) {
           const symbol = parts[1].toUpperCase();
-          const price = await this.bot.getLivePrice(symbol);
+          const price = await this.bot.getPrice(symbol);
           this.sendMessage(chatId, `💵 ${symbol} Price: $${price.toFixed(2)}`);
         } else {
           this.sendMessage(chatId, 'Usage: /price SYMBOL\nExample: /price SOL');
         }
       } else if (text.startsWith('/price')) {
-        const price = await this.bot.getLivePrice('SOL');
+        const price = await this.bot.getPrice('SOL');
         this.sendMessage(chatId, `💵 SOL Price: $${price.toFixed(2)}`);
       } else if (text.startsWith('/refresh ')) {
         const parts = text.split(' ');
@@ -342,6 +343,12 @@ Mode: ${result.mode.toUpperCase()}`;
           });
           this.sendMessage(chatId, msg);
         }
+      }
+    }
+    } catch (error) {
+      console.error('Command error:', error.message);
+      if (update.message) {
+        this.sendMessage(update.message.chat.id, '❌ Error processing command. Try /help');
       }
     }
   }
