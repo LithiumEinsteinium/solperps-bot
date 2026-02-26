@@ -211,9 +211,7 @@ Mode: ${result.mode.toUpperCase()}`;
         const status = this.bot.isRunning ? '🟢 Running' : '🔴 Stopped';
         const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
         this.sendMessage(chatId, `Status: ${status}\nMode: ${mode}`);
-        const wallet = this.bot.getWalletAddress();
-        this.sendMessage(chatId, `👛 Bot Wallet:\n\`${wallet}\``, { parse_mode: 'Markdown' });
-      } else if (text.startsWith('/phantom') || text.startsWith('/connect')) {
+      } else if (text.startsWith('/phantom')) {
         this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\n*Option 1: Web Page*\n${process.env.APP_URL || 'https://solperps-bot.onrender.com'}/connect.html\n\n*Option 2: Manual*\nSend: /connect YOUR_ADDRESS\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/connect ')) {
         const parts = text.split(' ');
