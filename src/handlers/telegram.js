@@ -94,6 +94,12 @@ class TelegramHandler {
       const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
       this.sendMessage(msg.chat.id, `Status: ${status}\nMode: ${mode}`);
     });
+
+    // Wallet
+    this.telegram.onText(/\/wallet/, (msg) => {
+      const wallet = this.bot.getWalletAddress();
+      this.sendMessage(msg.chat.id, `👛 Wallet Address:\n\`${wallet}\``, { parse_mode: 'Markdown' });
+    });
   }
 
   sendHelp(chatId) {
@@ -108,6 +114,7 @@ class TelegramHandler {
 *Management*
 /positions - View open positions
 /balance - Check balance
+/wallet - Get wallet address
 /tpsl ID TP SL - Set take profit & stop loss %
 /transfer ADDRESS AMOUNT - Transfer funds
 

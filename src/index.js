@@ -1,9 +1,46 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
 const { JupiterService } = require('./services/jupiter');
 const { PositionManager } = require('./services/positionManager');
 const { SignalEngine } = require('./strategies/signalEngine');
 const { TelegramHandler } = require('./handlers/telegram');
+
+function generateWallet() {
+  const keypair = Keypair.generate();
+  return {
+    publicKey: keypair.publicKey.toString(),
+    secretKey: Array.from(keypair.secretKey)
+  };
+}
+
+function loadOrCreateWallet() {
+  const walletPath = './data/wallet.json';
+  
+  if (fs.existsSync(walletPath)) {
+    const walletData = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
+    const secretKey = new Uint8Array(walletData.secretKey);
+    return Keypair.fromSecretKey(secretKey);
+  }
+  
+  // Generate new wallet
+  const wallet = generateWallet();
+  
+  // Ensure directory exists
+  const dir = path.dirname(walletPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  
+  // Save wallet
+  fs.writeFileSync(walletPath, JSON.stringify(wallet, null, 2));
+  console.log(`🔐 New wallet generated: ${wallet.publicKey}`);
+  console.log(`📁 Wallet saved to: ${walletPath}`);
+  console.log(`⚠️ IMPORTANT: Backup this file! It's the only way to access your funds.`);
+  
+  return Keypair.fromSecretKey(new Uint8Array(wallet.secretKey));
+}
 
 class SolPerpsBot {
   constructor(config) {
@@ -18,9 +55,9 @@ class SolPerpsBot {
     this.signals = new SignalEngine(this, config.signalConfig);
     this.telegram = new TelegramHandler(this, config.telegram);
     
-    this.wallet = Keypair.fromSecretKey(
-      Uint8Array.from(JSON.parse(process.env.WALLET_PRIVATE_KEY || '[]'))
-    );
+    // Load existing wallet or generate new one
+    this.wallet = loadOrCreateWallet();
+    console.log(`👛 Wallet: ${this.wallet.publicKey.toString()}`);
     
     this.isPaperTrading = config.paperTrading || true;
     this.isRunning = false;
@@ -219,6 +256,19 @@ class SolPerpsBot {
     this.isRunning = false;
     this.signals.stop();
     console.log('✅ Bot stopped');
+  }
+
+  // ==================== WALLET ====================
+
+  getWalletAddress() {
+    return this.wallet.publicKey.toString();
+  }
+
+  exportWallet() {
+    return {
+      publicKey: this.wallet.publicKey.toString(),
+      secretKey: Array.from(this.wallet.secretKey)
+    };
   }
 }
 
