@@ -60,26 +60,7 @@ class JupiterService {
   }
 
   async getPrice(symbol) {
-    // Try Jupiter first
-    try {
-      const mint = this.getMint(symbol);
-      const response = await axios.get(`${this.endpoint}/v6/price`, {
-        params: {
-          ids: mint
-        },
-        timeout: 3000
-      });
-      
-      if (response.data && response.data[mint]) {
-        const price = parseFloat(response.data[mint].price);
-        this.quoteCache.set(symbol, price);
-        return price;
-      }
-    } catch (error) {
-      // Fall through to CoinGecko
-    }
-    
-    // Try CoinGecko as backup
+    // Try CoinGecko first (most reliable)
     try {
       const coingeckoId = this.getCoingeckoId(symbol);
       if (coingeckoId) {
@@ -88,7 +69,7 @@ class JupiterService {
             ids: coingeckoId,
             vs_currencies: 'usd'
           },
-          timeout: 3000
+          timeout: 5000
         });
         
         if (response.data && response.data[coingeckoId]) {
@@ -98,7 +79,24 @@ class JupiterService {
         }
       }
     } catch (error) {
-      // Fall through to cache
+      console.log(`CoinGecko error for ${symbol}:`, error.message);
+    }
+    
+    // Try Jupiter as backup
+    try {
+      const mint = this.getMint(symbol);
+      const response = await axios.get(`${this.endpoint}/v6/price`, {
+        params: { ids: mint },
+        timeout: 5000
+      });
+      
+      if (response.data && response.data[mint]) {
+        const price = parseFloat(response.data[mint].price);
+        this.quoteCache.set(symbol, price);
+        return price;
+      }
+    } catch (error) {
+      console.log(`Jupiter error for ${symbol}:`, error.message);
     }
     
     // Use cached price
@@ -106,20 +104,8 @@ class JupiterService {
       return this.quoteCache.get(symbol);
     }
     
-    // Default fallback prices
-    const defaultPrices = {
-      'SOL': 86.00,
-      'BTC': 67500,
-      'ETH': 2050,
-    };
-    
-    return defaultPrices[symbol] || 1;
-  }
-
-  // Force refresh price (bypass cache)
-  async getFreshPrice(symbol) {
-    this.quoteCache.delete(symbol);
-    return await this.getPrice(symbol);
+    // Default fallback
+    return 1;
   }
 
   // ==================== POSITIONS ====================
