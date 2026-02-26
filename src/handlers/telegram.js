@@ -103,6 +103,7 @@ class TelegramHandler {
       const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
       this.sendMessage(msg.chat.id, `Status: ${status}\nMode: ${mode}`);
     });
+  }
 
   sendHelp(chatId) {
     const help = `
