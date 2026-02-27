@@ -21,36 +21,46 @@
 | `/long` | Working | Opens paper long position |
 | `/short` | Working | Opens paper short position |
 | `/close` | Working | Closes position by ID |
-| `/connect` | Working | Connect wallet by address |
+| `/wallet` | Working | Shows user's bot wallet address |
+| `/export` | Working | Exports private key (base58 format for Phantom) |
+| `/newwallet` | Working | Creates new wallet (with confirmation) |
+| `/confirmnewwallet` | Working | Confirms new wallet creation |
+| `/connect` | Working | Connect external Phantom wallet |
 | `/mywallet` | Working | Shows connected wallet status |
 | `/disconnect` | Working | Disconnects wallet |
 | `/status` | Working | Shows bot running status |
 | `/help` | Working | Shows help menu |
 | `/tpsl` | Working | Sets take profit/stop loss |
-| Price Alerts | Partial | Command works but not triggered |
 
 ### ❌ Removed/Non-Working Features
 
 | Feature | Status | Reason |
 |---------|--------|--------|
 | `/phantom` | Removed | Phantom deeplink requires App ID |
-| Built-in wallet | Removed | Security concern - users should hold own keys |
 | On-chain trading | Not implemented | Requires Jupiter Perps API + tx signing |
-| Live trading mode | Disabled | PAPER_TRADING=false but no real trading |
+| Live trading mode | Disabled | Paper trading mode active |
 
 ---
 
 ## Technical Decisions & Changes
 
 ### 1. Wallet Model
-**Original:** Bot generates and holds its own Solana wallet via private key  
-**Changed:** Users connect their own Phantom wallet by address  
-**Reason:** Security - bot shouldn't hold user funds/private keys
+**Final Approach:** Built-in wallet per user with private key export  
+**How it works:**
+- Each user gets their own Solana wallet (generated on first use)
+- Private keys stored in `./data/user_wallets.json`
+- Users can export private key anytime via `/export`
+- Private key in base58 format (Phantom-compatible)
+- `/newwallet` requires confirmation to prevent accidental loss
 
 **Why Phantom Deeplink Failed:**
 - Phantom's `phantom.app/ul/v1/connect` requires an App ID from Phantom Portal
 - Without App ID, the deep link doesn't trigger wallet connection
 - Workaround: Users manually enter address via `/connect ADDRESS`
+
+### 2. Private Key Export Format
+**Issue:** Default JSON array format not compatible with Phantom  
+**Solution:** Export as base58 string (Phantom's expected format)
 
 ### 2. Price Feed
 **Original:** CoinGecko API (rate limited, sometimes fails)  
