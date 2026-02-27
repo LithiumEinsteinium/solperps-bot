@@ -77,17 +77,20 @@ class PerpetualsService {
           
           this.driftClient = new DriftClient(sdkConfig);
           
+          // Initialize and subscribe
           if (typeof this.driftClient.initialize === 'function') {
+            console.log('📋 Initializing Drift...');
             await this.driftClient.initialize({});
           }
           
-          // Try to subscribe
-          try {
-            if (typeof this.driftClient.subscribe === 'function') {
-              await this.driftClient.subscribe();
-            }
-          } catch (e) {
-            console.log('Subscribe warning:', e.message);
+          // MUST subscribe before using
+          if (typeof this.driftClient.subscribe === 'function') {
+            console.log('📡 Subscribing to Drift...');
+            await this.driftClient.subscribe();
+            console.log('✅ Subscribed');
+          } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
+            console.log('📡 Subscribing to accounts...');
+            await this.driftClient.subscribeToAccounts();
           }
           
           this.initialized = true;
