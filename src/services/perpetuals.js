@@ -166,9 +166,11 @@ class PerpetualsService {
           
           // Try to get user - if this fails, no user exists
           try {
+            console.log('📋 Attempting to get Drift user...');
             const user = this.driftClient.getUser();
-            console.log('✅ Drift user found');
+            console.log('✅ User found:', user);
           } catch (userError) {
+            console.log('User error details:', JSON.stringify(userError));
             // User doesn't exist
             return { 
               success: false, 
