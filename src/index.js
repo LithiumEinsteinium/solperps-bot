@@ -10,6 +10,7 @@ const { UserWalletManager } = require('./services/userWallet');
 const { OnChainTrader } = require('./services/onChainTrader');
 // Try to load Drift SDK, but don't fail if it doesn't work
 let PerpetualsService;
+let JupiterPerpsService;
 let MARKETS;
 
 try {
@@ -20,6 +21,16 @@ try {
 } catch (error) {
   console.log('⚠️ Perpetuals not available:', error.message);
   PerpetualsService = null;
+}
+
+// Try to load Jupiter Perps service
+try {
+  const jupPerpsModule = require('./services/jupiterPerps.js');
+  JupiterPerpsService = jupPerpsModule.JupiterPerpsService;
+  console.log('🪐 Jupiter Perps service loaded');
+} catch (error) {
+  console.log('⚠️ Jupiter Perps not available:', error.message);
+  JupiterPerpsService = null;
 }
 
 const PORT = process.env.PORT || 3000;
@@ -83,6 +94,11 @@ class SolPerpsBot {
     
     // Perpetuals trading (Drift)
     this.perps = PerpetualsService ? new PerpetualsService({
+      rpcUrl: config.rpcUrl
+    }) : null;
+    
+    // Jupiter Perps (direct on-chain)
+    this.jupiterPerps = JupiterPerpsService ? new JupiterPerpsService({
       rpcUrl: config.rpcUrl
     }) : null;
     
@@ -319,7 +335,27 @@ class SolPerpsBot {
     
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
-    // Check user testnet mode
+    // Try Jupiter Perps first (direct on-chain)
+    if (this.jupiterPerps) {
+      const jupPrivateKey = this.getUserWalletPrivateKey(chatId);
+      const jupWalletAddress = this.userWallets.getAddress(chatId);
+      
+      if (jupPrivateKey) {
+        await this.jupiterPerps.initialize(jupPrivateKey, { walletAddress: jupWalletAddress });
+        
+        // Try to open position
+        const result = await this.jupiterPerps.openPosition(symbol, side, amount, leverage);
+        
+        // If Jupiter gives a clear "not implemented" error, try Drift instead
+        if (result.error && result.error.includes('API integration coming soon')) {
+          console.log('Jupiter not ready, trying Drift...');
+        } else {
+          return result;
+        }
+      }
+    }
+    
+    // Fall back to Drift
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
     const privateKey = this.getUserWalletPrivateKey(chatId);
     const walletAddress = this.userWallets.getAddress(chatId);
