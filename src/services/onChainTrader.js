@@ -4,7 +4,7 @@
  */
 
 const { Connection, PublicKey, Keypair, Transaction, SystemProgram } = require('@solana/web3.js');
-const bs58 = require('bs58');
+const bs58 = require('bs58').default;
 const axios = require('axios');
 
 class OnChainTrader {
