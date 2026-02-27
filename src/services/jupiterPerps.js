@@ -4,7 +4,7 @@
 
 const { 
   Connection, PublicKey, Keypair, Transaction, 
-  TransactionInstruction, SystemProgram, ASSOCIATED_TOKEN_PROGRAM_ID
+  TransactionInstruction, SystemProgram
 } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
 
@@ -12,7 +12,6 @@ const bs58 = require('bs58').default;
 function parsePubkey(addr) {
   const decoded = bs58.decode(addr);
   if (decoded.length === 31) {
-    // Pad to 32 bytes (for mint addresses)
     return new PublicKey(Buffer.concat([Buffer.alloc(1), decoded]));
   }
   return new PublicKey(decoded);
@@ -20,6 +19,7 @@ function parsePubkey(addr) {
 
 const JUPITER_PERPS_PROGRAM_ID = parsePubkey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
 const TOKEN_PROGRAM_ID = parsePubkey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = parsePubkey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 const USDC_MINT = parsePubkey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
 const SOL_MINT = parsePubkey('So11111111111111111111111111111111111111112');
 
@@ -66,14 +66,6 @@ class JupiterPerpsService {
 
   // Get associated token account address (without creating)
   getATAAddress(mint, owner) {
-    if (!mint || !owner || !TOKEN_PROGRAM_ID || !ASSOCIATED_TOKEN_PROGRAM_ID) {
-      console.log('getATAAddress debug:');
-      console.log('  mint:', !!mint);
-      console.log('  owner:', !!owner);
-      console.log('  TOKEN_PROGRAM_ID:', !!TOKEN_PROGRAM_ID);
-      console.log('  ASSOCIATED_TOKEN_PROGRAM_ID:', !!ASSOCIATED_TOKEN_PROGRAM_ID);
-      throw new Error('Missing required params');
-    }
     return PublicKey.findProgramAddressSync(
       [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       ASSOCIATED_TOKEN_PROGRAM_ID
