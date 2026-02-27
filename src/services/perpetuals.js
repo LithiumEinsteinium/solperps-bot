@@ -73,16 +73,7 @@ class PerpetualsService {
         console.log('✅ Drift SDK loaded successfully');
       } catch (retryError) {
         console.log('Drift SDK load error:', retryError.message);
-        // List possible causes
-        const possibleReasons = [];
-        if (retryError.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
-          possibleReasons.push('Node.js version incompatibility (need Node 18-24)');
-        }
-        if (retryError.message.includes('bindings')) {
-          possibleReasons.push('Native bindings issue - try rebuilding');
-        }
-        const reason = possibleReasons.length > 0 ? ` (${possibleReasons.join(', ')})` : '';
-        return { success: false, error: `Drift SDK load failed${reason}. Check server logs for details.` };
+        return { success: false, error: `Drift SDK load failed. Check server logs.` };
       }
     }
     
@@ -91,17 +82,22 @@ class PerpetualsService {
       const keypair = Keypair.fromSecretKey(bytes);
       this.signer = new Wallet(keypair);
       
+      // Force use of public RPC - don't use config RPC
+      console.log('🔧 Drift init with public RPCs only');
+      
       // Try different RPCs if rate limited
       let lastError = null;
       for (const rpcUrl of this.rpcEndpoints) {
         try {
-          console.log(`Trying RPC: ${rpcUrl}`);
+          console.log(`📡 Trying RPC: ${rpcUrl}`);
           this.connection = new Connection(rpcUrl, 'confirmed');
           
           const sdkConfig = {
             connection: this.connection,
             wallet: this.signer,
             network: 'mainnet',
+            // Override any internal RPC the SDK might try to use
+            rpcUrl: rpcUrl,
             timeout: 60000,
             defaultOptions: {
               commitment: 'confirmed',
