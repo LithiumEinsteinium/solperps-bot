@@ -119,7 +119,6 @@ class TelegramHandler {
 /price BTC — Any token
 
 *👛 Wallet*
-/phantom — Connect wallet
 /connect ADDRESS — Connect
 /mywallet — Check status
 /disconnect — Disconnect
@@ -213,7 +212,6 @@ Mode: ${result.mode.toUpperCase()}`;
         const status = this.bot.isRunning ? '🟢 Running' : '🔴 Stopped';
         const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
         this.sendMessage(chatId, `Status: ${status}\nMode: ${mode}`);
-      } else if (text.startsWith('/phantom')) {
         const appUrl = 'https://solperps-bot.onrender.com';
         this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\n*Option 1:* ${appUrl}/connect.html\n\n*Option 2:* Send your address:\n/connect YOUR_ADDRESS\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/connect ')) {
@@ -232,9 +230,9 @@ Mode: ${result.mode.toUpperCase()}`;
       } else if (text.startsWith('/mywallet')) {
         const status = this.bot.phantom?.getStatus?.() || { connected: false };
         if (status.connected) {
-          this.sendMessage(chatId, `✅ *Phantom Connected!*\n\nAddress: \`${status.publicKey}\`\nBalance: ${status.balance?.toFixed(4) || 0} SOL`, { parse_mode: 'Markdown' });
+          this.sendMessage(chatId, `✅ *Wallet Connected!*\n\nAddress: \`${status.publicKey}\`\nBalance: ${status.balance?.toFixed(4) || 0} SOL`, { parse_mode: 'Markdown' });
         } else {
-          this.sendMessage(chatId, `❌ No Phantom connected.\n\nUse /phantom to connect your wallet.`);
+          this.sendMessage(chatId, `❌ No wallet connected.\n\nUse /connect YOUR_ADDRESS to connect.`);
         }
       } else if (text.startsWith('/disconnect')) {
         this.bot.phantom?.disconnect?.();

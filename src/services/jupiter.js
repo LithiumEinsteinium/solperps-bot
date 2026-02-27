@@ -60,7 +60,23 @@ class JupiterService {
   }
 
   async getPrice(symbol) {
-    // Try CoinGecko first (most reliable)
+    // Try Binance first (most reliable & fast)
+    try {
+      const pair = symbol === 'SOL' ? 'SOLUSDT' : `${symbol}USDT`;
+      const response = await axios.get(`https://api.binance.com/api/v3/ticker/price`, {
+        params: { symbol: pair },
+        timeout: 3000
+      });
+      if (response.data && response.data.price) {
+        const price = parseFloat(response.data.price);
+        this.quoteCache.set(symbol, price);
+        return price;
+      }
+    } catch (error) {
+      console.log(`Binance error for ${symbol}:`, error.message);
+    }
+    
+    // Try CoinGecko as backup
     try {
       const coingeckoId = this.getCoingeckoId(symbol);
       if (coingeckoId) {
@@ -80,23 +96,6 @@ class JupiterService {
       }
     } catch (error) {
       console.log(`CoinGecko error for ${symbol}:`, error.message);
-    }
-    
-    // Try Jupiter as backup
-    try {
-      const mint = this.getMint(symbol);
-      const response = await axios.get(`${this.endpoint}/v6/price`, {
-        params: { ids: mint },
-        timeout: 5000
-      });
-      
-      if (response.data && response.data[mint]) {
-        const price = parseFloat(response.data[mint].price);
-        this.quoteCache.set(symbol, price);
-        return price;
-      }
-    } catch (error) {
-      console.log(`Jupiter error for ${symbol}:`, error.message);
     }
     
     // Use cached price
