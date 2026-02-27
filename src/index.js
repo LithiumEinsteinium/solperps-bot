@@ -369,9 +369,12 @@ class SolPerpsBot {
     
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
-    const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    // Debug: log which wallet we're using
     const privateKey = this.getUserWalletPrivateKey(chatId);
-    if (!privateKey) return { success: false, error: 'No wallet' };
+    if (!privateKey) return { success: false, error: 'No wallet - import one first with /import KEY' };
+    
+    const walletAddress = this.userWallets.getAddress(chatId);
+    console.log('🔑 Using wallet for perp:', walletAddress);
     
     // Reinitialize if needed
     const needsInit = !this.perps.initialized || 
