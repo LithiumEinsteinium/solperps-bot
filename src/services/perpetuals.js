@@ -18,6 +18,7 @@ try {
   console.log('✅ Drift SDK loaded');
 } catch (error) {
   console.log('⚠️ Drift SDK load error:', error.message);
+  DriftClient = null; // Will trigger "not loaded" error
 }
 
 const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
@@ -50,7 +51,18 @@ class PerpetualsService {
    */
   async initialize(privateKeyBase58) {
     if (!DriftClient) {
-      return { success: false, error: 'Drift SDK not loaded. Try: npm install @drift-labs/sdk' };
+      // Try to load the SDK again in case it wasn't installed initially
+      try {
+        const drift = require('@drift-labs/sdk');
+        DriftClient = drift.DriftClient;
+        Wallet = drift.Wallet;
+        BN = drift.BN;
+        MarketType = drift.MarketType;
+        PositionDirection = drift.PositionDirection;
+        console.log('✅ Drift SDK loaded on retry');
+      } catch (retryError) {
+        return { success: false, error: 'Drift SDK not available. Please ensure @drift-labs/sdk is installed: npm install @drift-labs/sdk' };
+      }
     }
     
     try {
