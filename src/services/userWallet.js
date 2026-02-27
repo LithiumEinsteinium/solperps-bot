@@ -116,6 +116,37 @@ class UserWalletManager {
   }
 
   /**
+   * Import wallet from private key
+   */
+  importWallet(chatId, privateKeyBase58) {
+    const id = chatId.toString();
+    
+    try {
+      // Validate the key by decoding it
+      const bytes = bs58.decode(privateKeyBase58);
+      if (bytes.length !== 32) {
+        return { success: false, error: 'Invalid private key length' };
+      }
+      
+      const keypair = Keypair.fromSecretKey(bytes);
+      const address = keypair.publicKey.toString();
+      
+      const wallet = {
+        address,
+        privateKey: privateKeyBase58,
+        importedAt: new Date().toISOString()
+      };
+      
+      this.wallets.set(id, wallet);
+      this.saveWallets();
+      
+      return { success: true, address };
+    } catch (error) {
+      return { success: false, error: 'Invalid private key: ' + error.message };
+    }
+  }
+
+  /**
    * Format address for display
    */
   formatAddress(address) {

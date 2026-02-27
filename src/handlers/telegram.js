@@ -121,6 +121,7 @@ class TelegramHandler {
 *👛 Wallet*
 /wallet — Your bot wallet
 /export — Export private key
+/import KEY — Import wallet
 /newwallet — New wallet
 /confirmnewwallet — Confirm new wallet
 
@@ -295,6 +296,24 @@ Mode: ${result.mode.toUpperCase()}`;
           this.sendMessage(chatId, `✅ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n⚠️ *IMPORTANT:* Export your new wallet private key with /export`, { parse_mode: 'Markdown' });
         } catch (e) {
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
+      } else if (text.startsWith('/import ')) {
+        const parts = text.split(' ');
+        const privateKey = parts.slice(1).join(' ').trim();
+        
+        if (privateKey.length > 20) {
+          try {
+            const result = this.bot.userWallets?.importWallet(chatId, privateKey);
+            if (result?.success) {
+              this.sendMessage(chatId, `✅ *Wallet Imported!*\n\nAddress: \`${result.address}\`\n\nYour wallet has been restored.`, { parse_mode: 'Markdown' });
+            } else {
+              this.sendMessage(chatId, `❌ Import failed: ${result?.error}`);
+            }
+          } catch (e) {
+            this.sendMessage(chatId, `❌ Error: ${e.message}`);
+          }
+        } else {
+          this.sendMessage(chatId, `Usage: /import YOUR_PRIVATE_KEY\n\nPaste your base58 private key to restore your wallet.`);
         }
       } else if (text.startsWith('/deposit')) {
         const address = this.bot.userWallets?.getAddress(chatId);
