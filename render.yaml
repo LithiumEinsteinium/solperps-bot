@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: solperps-bot
+    env: node
+    nodeVersion: "20"
+    buildCommand: npm install
+    startCommand: npm start
