@@ -292,20 +292,26 @@ class SolPerpsBot {
     return await this.perps.initialize(privateKey);
   }
 
-  async openPerpPosition(chatId, symbol, side, amount, leverage) {
+    async openPerpPosition(chatId, symbol, side, amount, leverage) {
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
     // Check user testnet mode
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return { success: false, error: 'No wallet' };
     
-    // Initialize perps if not already
-    if (!this.perps.initialized || this.perps.isTestnet !== isTestnet) {
-      const privateKey = this.getUserWalletPrivateKey(chatId);
-      if (!privateKey) return { success: false, error: 'No wallet' };
+    // Reinitialize if not initialized, or if wallet/network changed
+    const needsInit = !this.perps.initialized || 
+                      this.perps.isTestnet !== isTestnet ||
+                      this.perps.lastWalletKey !== privateKey;
+    
+    if (needsInit) {
+      console.log('🔄 Reinitializing Drift with new wallet...');
       const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet });
       if (!initResult.success) {
         return { success: false, error: 'Init failed: ' + initResult.error };
       }
+      this.perps.lastWalletKey = privateKey;
     }
     
     return await this.perps.openPosition(symbol, side, amount, leverage);
@@ -315,11 +321,20 @@ class SolPerpsBot {
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return { success: false, error: 'No wallet' };
     
-    if (!this.perps.initialized || this.perps.isTestnet !== isTestnet) {
-      const privateKey = this.getUserWalletPrivateKey(chatId);
-      if (!privateKey) return { success: false, error: 'No wallet' };
-      await this.perps.initialize(privateKey, { testnet: isTestnet });
+    // Reinitialize if needed
+    const needsInit = !this.perps.initialized || 
+                      this.perps.isTestnet !== isTestnet ||
+                      this.perps.lastWalletKey !== privateKey;
+    
+    if (needsInit) {
+      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet });
+      if (!initResult.success) {
+        return { success: false, error: 'Init failed: ' + initResult.error };
+      }
+      this.perps.lastWalletKey = privateKey;
     }
     
     return await this.perps.closePosition(positionIndex);
@@ -329,11 +344,17 @@ class SolPerpsBot {
     if (!this.perps) return [];
     
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return [];
     
-    if (!this.perps.initialized || this.perps.isTestnet !== isTestnet) {
-      const privateKey = this.getUserWalletPrivateKey(chatId);
-      if (!privateKey) return [];
+    // Reinitialize if needed
+    const needsInit = !this.perps.initialized || 
+                      this.perps.isTestnet !== isTestnet ||
+                      this.perps.lastWalletKey !== privateKey;
+    
+    if (needsInit) {
       await this.perps.initialize(privateKey, { testnet: isTestnet });
+      this.perps.lastWalletKey = privateKey;
     }
     
     return await this.perps.getPositions();
