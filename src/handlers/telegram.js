@@ -239,20 +239,32 @@ Mode: ${result.mode.toUpperCase()}`;
         this.bot.phantom?.disconnect?.();
         this.sendMessage(chatId, '✅ Wallet disconnected.');
       } else if (text.startsWith('/wallet')) {
-        const address = this.bot.userWallets.getAddress(chatId);
-        this.sendMessage(chatId, `👛 *Your Bot Wallet*\n\nAddress: \`${address}\`\n\nUse /export to get your private key.`, { parse_mode: 'Markdown' });
+        try {
+          const address = this.bot.userWallets?.getAddress(chatId);
+          this.sendMessage(chatId, `👛 *Your Bot Wallet*\n\nAddress: \`${address || 'Error'}\`\n\nUse /export to get your private key.`, { parse_mode: 'Markdown' });
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
       } else if (text.startsWith('/export')) {
-        const privateKey = this.bot.userWallets.getPrivateKey(chatId);
-        const privateKeyArray = JSON.stringify(this.bot.userWallets.getPrivateKeyArray(chatId));
-        const address = this.bot.userWallets.getAddress(chatId);
-        this.sendMessage(chatId, `🔑 *Private Key Export*\n\n⚠️ *WARNING:* Never share this!\n\n*For Phantom/Backpack:*\n\`${privateKey}\`\n\n*For other wallets (JSON):*\n\`${privateKeyArray}\`\n\nAddress: ${address}`, { parse_mode: 'Markdown' });
+        try {
+          const privateKey = this.bot.userWallets?.getPrivateKey(chatId);
+          const privateKeyArray = JSON.stringify(this.bot.userWallets?.getPrivateKeyArray(chatId));
+          const address = this.bot.userWallets?.getAddress(chatId);
+          this.sendMessage(chatId, `🔑 *Private Key Export*\n\n⚠️ *WARNING:* Never share this!\n\n*For Phantom/Backpack:*\n\`${privateKey}\`\n\n*For other wallets (JSON):*\n\`${privateKeyArray}\`\n\nAddress: ${address}`, { parse_mode: 'Markdown' });
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
       } else if (text.startsWith('/newwallet')) {
-        const oldAddress = this.bot.userWallets.hasWallet(chatId) 
-          ? this.bot.userWallets.getAddress(chatId) 
-          : null;
-        this.bot.userWallets.deleteWallet(chatId);
-        const newAddress = this.bot.userWallets.getAddress(chatId);
-        this.sendMessage(chatId, `⚠️ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n*Your old wallet funds are LOST if not exported!*\nUse /export on old wallet first!`, { parse_mode: 'Markdown' });
+        try {
+          const oldAddress = this.bot.userWalletsets?.hasWallet 
+            ? this.bot.userWallets?.getAddress(chatId) 
+            : null;
+          this.bot.userWallets?.deleteWallet(chatId);
+          const newAddress = this.bot.userWallets?.getAddress(chatId);
+          this.sendMessage(chatId, `⚠️ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n*Your old wallet funds are LOST if not exported!*\nUse /export on old wallet first!`, { parse_mode: 'Markdown' });
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
       } else if (text.startsWith('/long ')) {
         const parts = text.split(' ');
         if (parts.length >= 3) {
