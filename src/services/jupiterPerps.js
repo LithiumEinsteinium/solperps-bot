@@ -1,5 +1,5 @@
 /**
- * Jupiter Perpetuals Service - Simplified
+ * Jupiter Perpetuals Service - With Anchor
  */
 
 const { Connection, PublicKey, Keypair, Transaction, TransactionInstruction } = require('@solana/web3.js');
@@ -13,17 +13,22 @@ function parsePubkey(addr) {
   return new PublicKey(decoded);
 }
 
+// Program & accounts
 const JUPITER_PERPS = parsePubkey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
+const POOL = parsePubkey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq');
 const TOKEN_PROGRAM = parsePubkey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ATA_PROGRAM = parsePubkey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 const USDC = parsePubkey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
-const POOL_SOL = parsePubkey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq');
+const SOL = parsePubkey('So11111111111111111111111111111111111111112');
+
+const MARKETS = { 'SOL': 0, 'BTC': 1, 'ETH': 2 };
 
 class JupiterPerpsService {
   constructor() {
     this.connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
     this.keypair = null;
     this.walletAddress = null;
+    console.log('✅ Jupiter Perps v4 (Anchor-based)');
   }
 
   async initialize(privateKeyBase58) {
@@ -32,42 +37,96 @@ class JupiterPerpsService {
     return { success: true };
   }
 
-  getUserAccount(wallet) {
-    return PublicKey.findProgramAddressSync([Buffer.from('user'), wallet.toBuffer()], JUPITER_PERPS)[0];
+  // Derive position PDA: [position, wallet, pool, custody]
+  getPositionPDA(wallet, custody) {
+    return PublicKey.findProgramAddressSync(
+      [
+        Buffer.from('position'),
+        wallet.toBuffer(),
+        POOL.toBuffer(),
+        custody.toBuffer()
+      ],
+      JUPITER_PERPS
+    )[0];
   }
 
+  // Get user's USDC ATA
   getUSDC_ATA(owner) {
-    return PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), USDC.toBuffer()], ATA_PROGRAM)[0];
+    return PublicKey.findProgramAddressSync(
+      [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), USDC.toBuffer()],
+      ATA_PROGRAM
+    )[0];
+  }
+
+  // Build instantIncreasePositionPreSwap instruction
+  buildPreSwapIx(wallet, positionPDA, usdcATA, custody, sizeUSD, direction) {
+    // Instruction 5 per the code
+    const data = Buffer.alloc(40);
+    data.writeUInt8(5, 0); // instruction
+    // encodeSizeUsdDelta
+    data.writeBigUInt64LE(BigInt(sizeUSD), 1);
+    // encodeCollateralTokenDelta (null = auto)
+    // encodeSide
+    data.writeUInt32LE(direction === 'long' ? 0 : 1, 17);
+    // encodePriceSlippage (50 = 0.5%)
+    data.writeUInt32LE(50, 21);
+    // encodeRequestTime
+    data.writeBigUInt64LE(BigInt(Math.floor(Date.now() / 1000)), 25);
+
+    return new TransactionInstruction({
+      programId: JUPITER_PERPS,
+      keys: [
+        { pubkey: wallet, isSigner: true, isWritable: true },
+        { pubkey: positionPDA, isSigner: false, isWritable: true },
+        { pubkey: usdcATA, isSigner: false, isWritable: true },
+        { pubkey: POOL, isSigner: false, isWritable: false },
+        { pubkey: custody, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
   }
 
   async openPosition(symbol, side, amount, leverage) {
     if (!this.keypair) return { error: 'No wallet' };
-    
-    return { 
-      error: `🪐 *Jupiter Perps*
 
-Your wallet: \`${this.walletAddress}\`
+    const marketIndex = MARKETS[symbol.toUpperCase()];
+    if (marketIndex === undefined) return { error: `Unknown: ${symbol}` };
 
-To trade:
-1. Send USDC to this address
-2. Go to app.drift.trade
-3. Connect & trade
+    try {
+      const wallet = this.keypair.publicKey;
+      const usdcATA = this.getUSDC_ATA(wallet);
+      
+      // Need to fetch pool to get custody addresses
+      // For now, use a placeholder and see error
+      const custody = SOL; // Placeholder - will fail
+      
+      const positionPDA = this.getPositionPDA(wallet, custody);
+      const sizeUSD = Math.floor(amount * leverage * 1000000);
 
-Same wallet works everywhere!`,
-      wallet: this.walletAddress
-    };
+      const tx = new Transaction();
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet;
+
+      tx.add(this.buildPreSwapIx(wallet, positionPDA, usdcATA, custody, sizeUSD, side));
+
+      console.log('Simulating with Anchor-style instruction...');
+      const sim = await this.connection.simulateTransaction(tx);
+      
+      if (sim.value.err) {
+        console.log('Error:', JSON.stringify(sim.value.err));
+        return { error: `Sim failed: ${JSON.stringify(sim.value.err)}` };
+      }
+
+      return { success: true };
+
+    } catch (e) {
+      return { error: e.message };
+    }
   }
 
-  async getPositions() {
-    if (!this.keypair) return [];
-    return [];
-  }
-
-  async getAccountInfo() {
-    if (!this.walletAddress) return null;
-    return { wallet: this.walletAddress };
-  }
-
+  async getPositions() { return []; }
+  async getAccountInfo() { return { wallet: this.walletAddress }; }
   async closePosition() { return { error: 'Use UI' }; }
 }
 

@@ -9,6 +9,7 @@
     "install-perps": "npm install @drift-labs/sdk"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.28.0",
     "@drift-labs/sdk": "2.155.0",
     "@jup-ag/api": "^6.0.48",
     "@solana/web3.js": "^1.90.0",
