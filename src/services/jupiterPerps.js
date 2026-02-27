@@ -66,6 +66,14 @@ class JupiterPerpsService {
 
   // Get associated token account address (without creating)
   getATAAddress(mint, owner) {
+    if (!mint || !owner || !TOKEN_PROGRAM_ID || !ASSOCIATED_TOKEN_PROGRAM_ID) {
+      console.log('getATAAddress debug:');
+      console.log('  mint:', !!mint);
+      console.log('  owner:', !!owner);
+      console.log('  TOKEN_PROGRAM_ID:', !!TOKEN_PROGRAM_ID);
+      console.log('  ASSOCIATED_TOKEN_PROGRAM_ID:', !!ASSOCIATED_TOKEN_PROGRAM_ID);
+      throw new Error('Missing required params');
+    }
     return PublicKey.findProgramAddressSync(
       [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
       ASSOCIATED_TOKEN_PROGRAM_ID
