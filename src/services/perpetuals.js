@@ -155,6 +155,18 @@ class PerpetualsService {
     } catch (error) {
       console.error('Open position error:', error);
       console.error('Stack:', error.stack);
+      
+      // Give better error for no user
+      if (error.message && error.message.includes('no user')) {
+        return { success: false, error: `Drift account not found.
+
+Your wallet needs a Drift account. Please:
+1. Go to app.drift.trade
+2. Connect this wallet
+3. Deposit USDC
+4. Try again` };
+      }
+      
       return { success: false, error: error.message };
     }
   }
