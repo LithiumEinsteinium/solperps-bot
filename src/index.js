@@ -73,6 +73,9 @@ class SolPerpsBot {
     // Built-in wallet per user
     this.userWallets = new UserWalletManager('./data/user_wallets.json');
     
+    // Testnet mode per user
+    this.userTestnet = new Map();
+    
     // On-chain trading
     this.trader = new OnChainTrader({
       rpcUrl: config.rpcUrl
@@ -292,11 +295,14 @@ class SolPerpsBot {
   async openPerpPosition(chatId, symbol, side, amount, leverage) {
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
+    // Check user testnet mode
+    const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    
     // Initialize perps if not already
-    if (!this.perps.initialized) {
+    if (!this.perps.initialized || this.perps.isTestnet !== isTestnet) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return { success: false, error: 'No wallet' };
-      const initResult = await this.perps.initialize(privateKey);
+      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet });
       if (!initResult.success) {
         return { success: false, error: 'Init failed: ' + initResult.error };
       }
@@ -308,10 +314,12 @@ class SolPerpsBot {
   async closePerpPosition(chatId, positionIndex) {
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
-    if (!this.perps.initialized) {
+    const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    
+    if (!this.perps.initialized || this.perps.isTestnet !== isTestnet) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return { success: false, error: 'No wallet' };
-      await this.perps.initialize(privateKey);
+      await this.perps.initialize(privateKey, { testnet: isTestnet });
     }
     
     return await this.perps.closePosition(positionIndex);
@@ -320,10 +328,12 @@ class SolPerpsBot {
   async getPerpPositions(chatId) {
     if (!this.perps) return [];
     
-    if (!this.perps.initialized) {
+    const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
+    
+    if (!this.perps.initialized || this.perps.isTestnet !== isTestnet) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return [];
-      await this.perps.initialize(privateKey);
+      await this.perps.initialize(privateKey, { testnet: isTestnet });
     }
     
     return await this.perps.getPositions();

@@ -135,6 +135,7 @@ class TelegramHandler {
 /perppositions — View positions
 /perpclose INDEX — Close position
 /perpinfo — Account info
+/testnet — Toggle testnet mode
 /connect ADDRESS — Phantom
 
 *💼 Management*
@@ -415,6 +416,17 @@ Mode: ${result.mode.toUpperCase()}`;
           }
         } catch (e) {
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
+      } else if (text === '/testnet' || text.startsWith('/testnet ')) {
+        // Toggle testnet mode for this user
+        const currentMode = this.bot.userTestnet?.get(chatId.toString()) || false;
+        const newMode = !currentMode;
+        this.bot.userTestnet?.set(chatId.toString(), newMode);
+        
+        if (newMode) {
+          this.sendMessage(chatId, `🔷 *Testnet Mode ENABLED*\n\nDrift will use testnet. Use /perp to open test positions.\n\nUse /testnet again to switch back to mainnet.`, { parse_mode: 'Markdown' });
+        } else {
+          this.sendMessage(chatId, `✅ *Mainnet Mode ENABLED*\n\nDrift will use mainnet with real funds.\n\nUse /testnet again to switch to testnet.`, { parse_mode: 'Markdown' });
         }
       } else if (text.startsWith('/long ')) {
         const parts = text.split(' ');
