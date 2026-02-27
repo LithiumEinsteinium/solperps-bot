@@ -41,12 +41,15 @@ class PerpetualsService {
       'confirmed'
     );
     
-    // List of RPC endpoints to try
-    this.rpcEndpoints = [
-      'https://api.mainnet-beta.solana.com',
-      'https://solana-mainnet.g.alchemy.com/v2/demo',
-      'https://rpc.ankr.com/solana'
-    ];
+    // List of free RPC endpoints (no API key needed)
+    // Override with SOLANA_RPC env var if you have a paid endpoint
+    this.rpcEndpoints = process.env.SOLANA_RPC 
+      ? [process.env.SOLANA_RPC]
+      : [
+          'https://api.mainnet-beta.solana.com',
+          'https://rpc.ankr.com/solana',
+          'https://solana-rpc.publicnode.com'
+        ];
     
     this.driftClient = null;
     this.signer = null;
