@@ -331,7 +331,7 @@ class SolPerpsBot {
     
     if (needsInit) {
       console.log('🔄 Reinitializing Drift with new wallet...');
-      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet });
+      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet, walletAddress });
       if (!initResult.success) {
         return { success: false, error: 'Init failed: ' + initResult.error };
       }
@@ -382,7 +382,7 @@ class SolPerpsBot {
                       this.perps.lastWalletKey !== privateKey;
     
     if (needsInit) {
-      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet });
+      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet, walletAddress });
       if (!initResult.success) {
         return { success: false, error: 'Init failed: ' + initResult.error };
       }
@@ -416,7 +416,7 @@ class SolPerpsBot {
                       this.perps.lastWalletKey !== privateKey;
     
     if (needsInit) {
-      await this.perps.initialize(privateKey, { testnet: isTestnet });
+      await this.perps.initialize(privateKey, { testnet: isTestnet, walletAddress });
       this.perps.lastWalletKey = privateKey;
     }
     

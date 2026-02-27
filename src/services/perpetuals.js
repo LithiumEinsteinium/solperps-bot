@@ -75,7 +75,10 @@ class PerpetualsService {
   async initialize(privateKeyBase58, options = {}) {
     // Check testnet mode - from options or env
     const isTestnet = options.testnet || process.env.DRIFT_TESTNET === 'true';
+    const walletAddress = options.walletAddress;
     this.isTestnet = isTestnet;
+    this.walletAddress = walletAddress;
+    console.log('📋 Initialize with wallet:', walletAddress);
     
     // Update RPC endpoints based on network
     this.rpcEndpoints = process.env.SOLANA_RPC 
@@ -170,7 +173,7 @@ class PerpetualsService {
               success: false, 
               error: `⚠️ Drift account not found for this wallet.
 
-Wallet: ${walletAddress.slice(0,8)}...${walletAddress.slice(-8)}
+Wallet: ${this.walletAddress ? this.walletAddress.slice(0,8) + '...' + this.walletAddress.slice(-8) : 'unknown'}
 
 Options:
 1. Use Paper Trading - Try /perp without importing (uses paper)
