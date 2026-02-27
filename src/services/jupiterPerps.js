@@ -4,14 +4,24 @@
 
 const { 
   Connection, PublicKey, Keypair, Transaction, 
-  TransactionInstruction, SystemProgram, ASSOCIATED_TOKEN_PROGRAM_ID 
+  TransactionInstruction, SystemProgram, ASSOCIATED_TOKEN_PROGRAM_ID
 } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
-const { Token, TOKEN_PROGRAM_ID } = require('@solana/spl-token');
 
-const JUPITER_PERPS_PROGRAM_ID = new PublicKey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
-const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
-const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+// Helper to decode base58 address to PublicKey (handles special cases)
+function parsePubkey(addr) {
+  const decoded = bs58.decode(addr);
+  if (decoded.length === 31) {
+    // Pad to 32 bytes (for mint addresses)
+    return new PublicKey(Buffer.concat([Buffer.alloc(1), decoded]));
+  }
+  return new PublicKey(decoded);
+}
+
+const JUPITER_PERPS_PROGRAM_ID = parsePubkey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
+const TOKEN_PROGRAM_ID = parsePubkey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const USDC_MINT = parsePubkey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
+const SOL_MINT = parsePubkey('So11111111111111111111111111111111111111112');
 
 // Markets
 const MARKETS = {
@@ -54,23 +64,34 @@ class JupiterPerpsService {
     return userAccount;
   }
 
+  // Get associated token account address (without creating)
+  getATAAddress(mint, owner) {
+    return PublicKey.findProgramAddressSync(
+      [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    )[0];
+  }
+
   // Get or create associated token account
   async getOrCreateATA(mint, owner) {
-    const token = new Token(this.connection, mint, TOKEN_PROGRAM_ID, this.keypair);
+    const ata = this.getATAAddress(mint, owner);
     
     try {
-      const ata = await token.getOrCreateAssociatedAccountInfo(owner);
-      return ata.address;
+      const info = await this.connection.getParsedAccountInfo(ata);
+      if (info.value) {
+        return ata;
+      }
     } catch (e) {
-      // Create if doesn't exist
-      return await token.createAssociatedTokenAccount(owner);
+      // Account doesn't exist
     }
+    
+    return ata;
   }
 
   // Build instruction 4: SetTokenLedger
   buildSetTokenLedgerInstruction(tokenAccount) {
     const data = Buffer.alloc(1);
-    data.writeUInt8(4, 0); // Instruction 4 = SetTokenLedger
+    data.writeUInt8(4, 0);
 
     return new TransactionInstruction({
       programId: JUPITER_PERPS_PROGRAM_ID,
@@ -82,38 +103,25 @@ class JupiterPerpsService {
   }
 
   // Build instruction 5: InstantIncreasePositionPreSwap
-  // This is the complex one - swaps collateral
   buildIncreasePositionPreSwapInstruction(
     wallet, 
     userAccount, 
     collateralMint,
     marketIndex,
     sizeUSD,
-    direction // 'long' or 'short'
+    direction
   ) {
-    // Instruction 5 = InstantIncreasePositionPreSwap
     const data = Buffer.alloc(33);
-    data.writeUInt8(5, 0); // Instruction index
-    
-    // Market index (4 bytes, LE)
+    data.writeUInt8(5, 0);
     data.writeUInt32LE(marketIndex, 1);
-    
-    // Size in USD (8 bytes, LE) - this is the position size
     data.writeBigUInt64LE(BigInt(sizeUSD), 5);
-    
-    // Direction (4 bytes): 0 = long, 1 = short
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
-    
-    // Slippage (8 bytes) - allow 1%
-    data.writeBigUInt64LE(BigInt(10000), 17);
-    
-    // Unused/padding (16 bytes)
-    
+    data.writeBigUInt64LE(BigInt(10000), 17); // Slippage
+
     const keys = [
       { pubkey: wallet, isSigner: true, isWritable: true },
       { pubkey: userAccount, isSigner: false, isWritable: true },
       { pubkey: collateralMint, isSigner: false, isWritable: false },
-      // More keys needed...
     ];
 
     return new TransactionInstruction({
@@ -124,17 +132,9 @@ class JupiterPerpsService {
   }
 
   // Build instruction 6: InstantIncreasePosition  
-  buildIncreasePositionInstruction(
-    wallet,
-    userAccount,
-    marketIndex,
-    sizeUSD,
-    direction
-  ) {
-    // Instruction 6 = InstantIncreasePosition
+  buildIncreasePositionInstruction(wallet, userAccount, marketIndex, sizeUSD, direction) {
     const data = Buffer.alloc(33);
-    data.writeUInt8(6, 0); // Instruction index
-    
+    data.writeUInt8(6, 0);
     data.writeUInt32LE(marketIndex, 1);
     data.writeBigUInt64LE(BigInt(sizeUSD), 5);
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
@@ -170,72 +170,45 @@ class JupiterPerpsService {
       const usdcATA = await this.getOrCreateATA(USDC_MINT, walletPubkey);
       console.log('USDC ATA:', usdcATA.toString());
 
-      // Calculate size in USD (amount * leverage)
-      const sizeUSD = Math.floor(amount * leverage * 1000000); // in micro-USDC
+      // Calculate size in USD
+      const sizeUSD = Math.floor(amount * leverage * 1000000);
 
-      // Create transaction
       const transaction = new Transaction();
-      
       const { blockhash } = await this.connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = walletPubkey;
 
-      // Add SetTokenLedger instruction
-      transaction.add(
-        this.buildSetTokenLedgerInstruction(usdcATA)
-      );
-
-      // Add IncreasePositionPreSwap
+      // Add instructions
+      transaction.add(this.buildSetTokenLedgerInstruction(usdcATA));
       transaction.add(
         this.buildIncreasePositionPreSwapInstruction(
-          walletPubkey,
-          userAccount,
-          USDC_MINT,
-          market.index,
-          sizeUSD,
-          side.toLowerCase()
+          walletPubkey, userAccount, USDC_MINT, market.index, sizeUSD, side.toLowerCase()
         )
       );
-
-      // Add IncreasePosition
       transaction.add(
         this.buildIncreasePositionInstruction(
-          walletPubkey,
-          userAccount,
-          market.index,
-          sizeUSD,
-          side.toLowerCase()
+          walletPubkey, userAccount, market.index, sizeUSD, side.toLowerCase()
         )
       );
 
       // Try to simulate
       try {
-        console.log('Simulating transaction...');
+        console.log('Simulating...');
         const sim = await this.connection.simulateTransaction(transaction);
         if (sim.value.err) {
-          console.log('Simulation error:', JSON.stringify(sim.value.err));
-          return {
-            success: false,
-            error: `Simulation failed: ${JSON.stringify(sim.value.err)}`,
-            hint: 'The instruction format may need adjustment'
-          };
+          console.log('Sim error:', JSON.stringify(sim.value.err));
+          return { success: false, error: 'Sim failed: ' + JSON.stringify(sim.value.err) };
         }
-        console.log('Simulation success!');
-      } catch (simError) {
-        console.log('Simulation error:', simError.message);
+        console.log('Sim success!');
+      } catch (e) {
+        console.log('Sim error:', e.message);
       }
 
       // Sign and send
       transaction.sign(this.keypair);
       const signature = await this.connection.sendRawTransaction(transaction.serialize());
       
-      console.log('Transaction sent:', signature);
-      
-      return {
-        success: true,
-        txid: signature,
-        message: `Position opened!\nTx: ${signature}`
-      };
+      return { success: true, txid: signature };
 
     } catch (error) {
       console.error('Error:', error);
@@ -243,21 +216,12 @@ class JupiterPerpsService {
     }
   }
 
-  async getPositions() {
-    if (!this.walletAddress) return [];
-    // Would need to decode user account data
-    return [];
-  }
-
+  async getPositions() { return []; }
   async getAccountInfo() {
-    return {
-      wallet: this.walletAddress,
-      userAccount: this.walletAddress ? this.getUserAccountAddress(this.walletAddress).toString() : null
-    };
+    return { wallet: this.walletAddress };
   }
-
-  async closePosition(positionIndex) {
-    return { success: false, error: 'Not implemented' };
+  async closePosition() { 
+    return { success: false, error: 'Not implemented' }; 
   }
 }
 
