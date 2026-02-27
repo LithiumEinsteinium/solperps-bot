@@ -93,8 +93,16 @@ class PerpetualsService {
       };
       
       this.driftClient = new DriftClient(sdkConfig);
-      await this.driftClient.initialize({});
-      await this.driftClient.subscribe();
+      
+      // Try new API first, then fall back to old
+      if (typeof this.driftClient.initialize === 'function') {
+        await this.driftClient.initialize({});
+      }
+      if (typeof this.driftClient.subscribe === 'function') {
+        await this.driftClient.subscribe();
+      } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
+        await this.driftClient.subscribeToAccounts();
+      }
       
       this.initialized = true;
       console.log('✅ Drift perpetuals initialized');
