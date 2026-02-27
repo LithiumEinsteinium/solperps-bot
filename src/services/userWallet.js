@@ -122,32 +122,46 @@ class UserWalletManager {
     const id = chatId.toString();
     
     let bytes;
+    let privateKeyBase58;
     
     try {
+      privateKeyInput = privateKeyInput.trim();
+      console.log('Import attempt, input length:', privateKeyInput.length, 'first 20:', privateKeyInput.substring(0, 20));
+      
       // Try parsing as JSON array first: [20, 120, 76, ...]
       if (privateKeyInput.startsWith('[')) {
         const arr = JSON.parse(privateKeyInput);
         bytes = new Uint8Array(arr);
+        console.log('Parsed as JSON array, length:', bytes.length);
       } 
-      // Try parsing as JSON array string
-      else if (privateKeyInput.includes(',')) {
-        const arr = privateKeyInput.replace('[', '').replace(']', '').split(',').map(n => parseInt(n.trim()));
-        bytes = new Uint8Array(arr);
+      // Try parsing as JSON array string without brackets
+      else if (privateKeyInput.includes(',') && !privateKeyInput.startsWith('4')) {
+        const cleanArr = privateKeyInput.replace('[', '').replace(']', '').split(',').map(n => parseInt(n.trim()));
+        bytes = new Uint8Array(cleanArr);
+        console.log('Parsed as comma array, length:', bytes.length);
       }
-      // Try base58
+      // Try base58 (most common for Phantom)
       else {
-        bytes = bs58.decode(privateKeyInput);
+        try {
+          bytes = bs58.decode(privateKeyInput);
+          console.log('Parsed as base58, length:', bytes.length);
+        } catch (e) {
+          // Try as hex
+          bytes = new Uint8Array(privateKeyInput.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+          console.log('Parsed as hex, length:', bytes.length);
+        }
       }
       
+      // Validate length - accept 32 or provide better error
       if (bytes.length !== 32) {
-        return { success: false, error: 'Invalid key: must be 32 bytes' };
+        return { success: false, error: `Key length ${bytes.length}, need 32 bytes. Make sure you copied the full key.` };
       }
       
       const keypair = Keypair.fromSecretKey(bytes);
       const address = keypair.publicKey.toString();
       
       // Store as base58 for consistency
-      const privateKeyBase58 = bs58.encode(bytes);
+      privateKeyBase58 = bs58.encode(bytes);
       
       const wallet = {
         address,
