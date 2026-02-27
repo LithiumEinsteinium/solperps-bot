@@ -74,11 +74,14 @@ class JupiterPerpsService {
   // Build InstantIncreasePositionPreSwap (instruction 5)
   buildPreSwapInstruction(user, userAccount, collateralATA, market, sizeUSD, direction) {
     const data = Buffer.alloc(33);
-    data.writeUInt8(5, 0);  // instruction
+    data.writeUInt8(5, 0);
     data.writeUInt32LE(market, 1);
     data.writeBigUInt64LE(BigInt(sizeUSD), 5);
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
-    data.writeBigUInt64LE(BigInt(10000), 17);  // slippage
+    data.writeBigUInt64LE(BigInt(10000), 17);
+
+    // More accounts from successful transaction
+    const priceFeed = parsePubkey('DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e');
 
     return new TransactionInstruction({
       programId: JUPITER_PERPS,
@@ -86,7 +89,8 @@ class JupiterPerpsService {
         { pubkey: user, isSigner: true, isWritable: true },
         { pubkey: userAccount, isSigner: false, isWritable: true },
         { pubkey: collateralATA, isSigner: false, isWritable: true },
-        { pubkey: POOLS['SOL'], isSigner: false, isWritable: false },  // pool
+        { pubkey: POOLS['SOL'], isSigner: false, isWritable: false },
+        { pubkey: priceFeed, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
         { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },
         { pubkey: SYSTEM, isSigner: false, isWritable: false },
