@@ -122,6 +122,7 @@ class TelegramHandler {
 /wallet — Your bot wallet
 /export — Export private key
 /newwallet — New wallet
+/confirmnewwallet — Confirm new wallet
 /connect ADDRESS — Phantom
 
 *💼 Management*
@@ -255,13 +256,32 @@ Mode: ${result.mode.toUpperCase()}`;
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
         }
       } else if (text.startsWith('/newwallet')) {
+        // Check if they already have a wallet
+        const hasExisting = this.bot.userWallets?.hasWallet(chatId);
+        
+        if (hasExisting) {
+          // First time - warn them
+          this.sendMessage(chatId, `⚠️ *Warning: Create New Wallet?*\n\nThis will create a NEW wallet and your current wallet will be LOST if you haven't exported the private key.\n\n*To proceed, reply:*\n/confirmnewwallet\n\n*To cancel, just ignore this message.*`, { parse_mode: 'Markdown' });
+        } else {
+          // No existing wallet - just create one
+          try {
+            const address = this.bot.userWallets?.getAddress(chatId);
+            this.sendMessage(chatId, `👛 *Wallet Created*\n\nAddress: \`${address}\`\n\nUse /export to get your private key!`, { parse_mode: 'Markdown' });
+          } catch (e) {
+            this.sendMessage(chatId, `❌ Error: ${e.message}`);
+          }
+        }
+      } else if (text.startsWith('/confirmnewwallet')) {
         try {
-          const oldAddress = this.bot.userWalletsets?.hasWallet 
+          // Delete old wallet first to get the address
+          const oldAddress = this.bot.userWallets?.hasWallet(chatId) 
             ? this.bot.userWallets?.getAddress(chatId) 
             : null;
+          
           this.bot.userWallets?.deleteWallet(chatId);
           const newAddress = this.bot.userWallets?.getAddress(chatId);
-          this.sendMessage(chatId, `⚠️ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n*Your old wallet funds are LOST if not exported!*\nUse /export on old wallet first!`, { parse_mode: 'Markdown' });
+          
+          this.sendMessage(chatId, `✅ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n⚠️ *IMPORTANT:* Export your new wallet private key with /export`, { parse_mode: 'Markdown' });
         } catch (e) {
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
         }
