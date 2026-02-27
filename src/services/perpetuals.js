@@ -41,6 +41,13 @@ class PerpetualsService {
       'confirmed'
     );
     
+    // List of RPC endpoints to try
+    this.rpcEndpoints = [
+      'https://api.mainnet-beta.solana.com',
+      'https://solana-mainnet.g.alchemy.com/v2/demo',
+      'https://rpc.ankr.com/solana'
+    ];
+    
     this.driftClient = null;
     this.signer = null;
     this.initialized = false;
@@ -81,32 +88,50 @@ class PerpetualsService {
       const keypair = Keypair.fromSecretKey(bytes);
       this.signer = new Wallet(keypair);
       
-      const sdkConfig = {
-        connection: this.connection,
-        wallet: this.signer,
-        network: 'mainnet',
-        timeout: 30000,
-        defaultOptions: {
-          commitment: 'confirmed',
-          preflightCommitment: 'confirmed'
+      // Try different RPCs if rate limited
+      let lastError = null;
+      for (const rpcUrl of this.rpcEndpoints) {
+        try {
+          console.log(`Trying RPC: ${rpcUrl}`);
+          this.connection = new Connection(rpcUrl, 'confirmed');
+          
+          const sdkConfig = {
+            connection: this.connection,
+            wallet: this.signer,
+            network: 'mainnet',
+            timeout: 60000,
+            defaultOptions: {
+              commitment: 'confirmed',
+              preflightCommitment: 'confirmed'
+            }
+          };
+          
+          this.driftClient = new DriftClient(sdkConfig);
+          
+          // Try new API first, then fall back to old
+          if (typeof this.driftClient.initialize === 'function') {
+            await this.driftClient.initialize({});
+          }
+          if (typeof this.driftClient.subscribe === 'function') {
+            await this.driftClient.subscribe();
+          } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
+            await this.driftClient.subscribeToAccounts();
+          }
+          
+          this.initialized = true;
+          console.log('✅ Drift perpetuals initialized');
+          return { success: true };
+        } catch (rpcError) {
+          console.log(`RPC ${rpcUrl} failed:`, rpcError.message);
+          lastError = rpcError;
+          if (rpcError.message.includes('429') || rpcError.message.includes('Too Many Requests')) {
+            continue; // Try next RPC
+          }
+          throw rpcError;
         }
-      };
-      
-      this.driftClient = new DriftClient(sdkConfig);
-      
-      // Try new API first, then fall back to old
-      if (typeof this.driftClient.initialize === 'function') {
-        await this.driftClient.initialize({});
-      }
-      if (typeof this.driftClient.subscribe === 'function') {
-        await this.driftClient.subscribe();
-      } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
-        await this.driftClient.subscribeToAccounts();
       }
       
-      this.initialized = true;
-      console.log('✅ Drift perpetuals initialized');
-      return { success: true };
+      throw lastError || new Error('All RPCs failed');
     } catch (error) {
       console.error('Drift init error:', error.message);
       return { success: false, error: error.message };
