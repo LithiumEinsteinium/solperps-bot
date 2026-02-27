@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm install",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
+  "framework": null,
+  "nodeVersion": "18"
+}
