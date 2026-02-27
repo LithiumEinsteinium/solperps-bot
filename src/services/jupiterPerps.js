@@ -170,79 +170,25 @@ class JupiterPerpsService {
       return { success: false, error: 'Wallet not initialized' };
     }
 
-    const market = MARKETS[symbol.toUpperCase()];
-    if (!market) {
-      return { success: false, error: `Unknown market: ${symbol}` };
-    }
+    // Show user their Jupiter-compatible wallet
+    return { 
+      success: false, 
+      error: `🪐 *Jupiter Perps*
 
-    try {
-      const walletPubkey = this.keypair.publicKey;
-      const userAccount = this.getUserAccountAddress(this.walletAddress);
-      
-      // Get USDC token account
-      const usdcATA = this.getATAAddress(USDC_MINT, walletPubkey);
-      console.log('USDC ATA:', usdcATA.toString());
-
-      // Calculate size in USD
-      const sizeUSD = Math.floor(amount * leverage * 1000000);
-
-      // Build transaction
-      const transaction = new Transaction();
-      const { blockhash } = await this.connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = walletPubkey;
-
-      // Add instruction - simplified
-      // Note: Full instruction needs more accounts, using placeholder
-      const data = Buffer.alloc(33);
-      data.writeUInt8(5, 0);
-      data.writeUInt32LE(market.index, 1);
-      data.writeBigUInt64LE(BigInt(sizeUSD), 5);
-      data.writeUInt32LE(side.toLowerCase() === 'long' ? 0 : 1, 13);
-      data.writeBigUInt64LE(BigInt(10000), 17);
-
-      // Minimal accounts - will fail but shows the approach
-      const instruction = new TransactionInstruction({
-        programId: JUPITER_PERPS_PROGRAM_ID,
-        keys: [
-          { pubkey: walletPubkey, isSigner: true, isWritable: true },
-          { pubkey: userAccount, isSigner: false, isWritable: true },
-          { pubkey: usdcATA, isSigner: false, isWritable: true },
-        ],
-        data,
-      });
-
-      transaction.add(instruction);
-
-      // Try to simulate
-      try {
-        console.log('Simulating...');
-        const sim = await this.connection.simulateTransaction(transaction);
-        if (sim.value.err) {
-          console.log('Sim error:', JSON.stringify(sim.value.err));
-          return { 
-            success: false, 
-            error: `Jupiter Perps needs more accounts configured.
-
-Your wallet: ${this.walletAddress}
+Your trading wallet:
+\`${this.walletAddress}\`
 
 To trade:
-1. Go to app.drift.trade
-2. Connect this wallet
-3. Trade manually
+1. Copy this address
+2. Send USDC to this address
+3. Go to app.drift.trade
+4. Connect wallet & trade
 
-Note: Full API integration coming soon.`,
-            wallet: this.walletAddress
-          };
-        }
-      } catch (e) {
-        console.log('Sim error:', e.message);
-      }
+*The same wallet works on Jupiter!*
 
-    } catch (error) {
-      console.error('Error:', error);
-      return { success: false, error: error.message };
-    }
+Current balance: check with /onchain`,
+      wallet: this.walletAddress
+    };
   }
 
   async getPositions() { return []; }
