@@ -110,23 +110,24 @@ class TelegramHandler {
 🤖 *SOLPERPS Bot*
 
 *📈 Trading*
-/long SOL 10 — Open long 10 SOL
-/short SOL 5 — Open short 5 SOL
+/long SOL 10 — Open long
+/short SOL 5 — Open short
 /close 12345 — Close position
 
-*💵 Prices*
+*💵 Price*
 /price — SOL price
-/price BTC — Any token price
+/price BTC — Any token
 
-*👛 Phantom Wallet*
-/phantom — Connect your Phantom
-/mywallet — Check Phantom status
-/disconnect — Disconnect wallet
+*👛 Wallet*
+/phantom — Connect wallet
+/connect ADDRESS — Connect
+/mywallet — Check status
+/disconnect — Disconnect
 
 *💼 Management*
 /positions — Open positions
 /balance — Your balance
-/tpsl 12345 10 5 — 10% TP, 5% SL
+/tpsl 12345 10 5 — Set TP/SL
 
 *ℹ️ Info*
 /status — Bot status
@@ -213,7 +214,8 @@ Mode: ${result.mode.toUpperCase()}`;
         const mode = this.bot.isPaperTrading ? '📝 Paper' : '💸 Live';
         this.sendMessage(chatId, `Status: ${status}\nMode: ${mode}`);
       } else if (text.startsWith('/phantom')) {
-        this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\n*Option 1: Web Page*\n${process.env.APP_URL || 'https://solperps-bot.onrender.com'}/connect.html\n\n*Option 2: Manual*\nSend: /connect YOUR_ADDRESS\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`, { parse_mode: 'Markdown' });
+        const appUrl = 'https://solperps-bot.onrender.com';
+        this.sendMessage(chatId, `🔗 *Connect Your Wallet*\n\n*Option 1:* ${appUrl}/connect.html\n\n*Option 2:* Send your address:\n/connect YOUR_ADDRESS\n\nExample: /connect 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/connect ')) {
         const parts = text.split(' ');
         if (parts.length >= 2) {
@@ -267,30 +269,21 @@ Mode: ${result.mode.toUpperCase()}`;
           this.sendMessage(chatId, 'Usage: /close POSITION_ID');
         }
       } else if (text.startsWith('/price ')) {
-        const parts = text.split(' ');
-        if (parts.length >= 2) {
+        try {
+          const parts = text.split(' ');
           const symbol = parts[1].toUpperCase();
-          const price = await this.bot.getPrice(symbol);
-          this.sendMessage(chatId, `💵 ${symbol} Price: $${price.toFixed(2)}`);
-        } else {
-          this.sendMessage(chatId, 'Usage: /price SYMBOL\nExample: /price SOL');
+          const price = await this.bot.jupiter.getPrice(symbol);
+          this.sendMessage(chatId, `💵 ${symbol}: $${price.toFixed(2)}`);
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Could not get price. Try: /price SOL`);
         }
       } else if (text.startsWith('/price')) {
-        const price = await this.bot.getPrice('SOL');
-        this.sendMessage(chatId, `💵 SOL Price: $${price.toFixed(2)}`);
-      } else if (text.startsWith('/refresh ')) {
-        const parts = text.split(' ');
-        if (parts.length >= 2) {
-          const symbol = parts[1].toUpperCase();
-          const price = await this.bot.jupiter.getFreshPrice(symbol);
-          this.sendMessage(chatId, `🔄 ${symbol} Price (refreshed): $${price.toFixed(2)}`);
-        } else {
-          const price = await this.bot.jupiter.getFreshPrice('SOL');
-          this.sendMessage(chatId, `🔄 SOL Price (refreshed): $${price.toFixed(2)}`);
+        try {
+          const price = await this.bot.jupiter.getPrice('SOL');
+          this.sendMessage(chatId, `💵 SOL: $${price.toFixed(2)}`);
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Could not get SOL price`);
         }
-      } else if (text.startsWith('/refresh')) {
-        const price = await this.bot.jupiter.getFreshPrice('SOL');
-        this.sendMessage(chatId, `🔄 SOL Price (refreshed): $${price.toFixed(2)}`);
       } else if (text.startsWith('/alert ')) {
         const parts = text.split(' ');
         if (parts.length >= 4) {
