@@ -1,5 +1,5 @@
 /**
- * Jupiter Perpetuals Service - Direct on-chain with working instructions
+ * Jupiter Perpetuals Service - With working instruction parsing
  */
 
 const { 
@@ -8,7 +8,6 @@ const {
 } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
 
-// Helper to decode base58 address to PublicKey (handles special cases)
 function parsePubkey(addr) {
   const decoded = bs58.decode(addr);
   if (decoded.length === 31) {
@@ -17,187 +16,149 @@ function parsePubkey(addr) {
   return new PublicKey(decoded);
 }
 
-const JUPITER_PERPS_PROGRAM_ID = parsePubkey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
-const TOKEN_PROGRAM_ID = parsePubkey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const ASSOCIATED_TOKEN_PROGRAM_ID = parsePubkey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-const USDC_MINT = parsePubkey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
-const SOL_MINT = parsePubkey('So11111111111111111111111111111111111111112');
+const JUPITER_PERPS = parsePubkey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
+const TOKEN_PROGRAM = parsePubkey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ATA_PROGRAM = parsePubkey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+const USDC = parsePubkey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
+const SOL = parsePubkey('So11111111111111111111111111111111111111112');
+const SYSTEM = parsePubkey('11111111111111111111111111111111');
 
-// Markets
-const MARKETS = {
-  'SOL': { index: 0, mint: SOL_MINT },
-  'BTC': { index: 1 },
-  'ETH': { index: 2 },
+// Pool addresses
+const POOLS = {
+  'SOL': parsePubkey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq'),
 };
+
+const MARKETS = { 'SOL': 0, 'BTC': 1, 'ETH': 2 };
 
 class JupiterPerpsService {
   constructor(config = {}) {
-    this.config = config;
-    // Use multiple RPCs to avoid rate limits
-    this.rpcUrls = [
-      'https://api.mainnet-beta.solana.com',
-      'https://rpc.ankr.com/solana',
-      'https://solana-rpc.publicnode.com'
-    ];
-    this.currentRpcIndex = 0;
-    
-    // Try different RPC on each request
-    this.connection = new Connection(this.rpcUrls[0], 'confirmed');
+    this.connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
     this.keypair = null;
     this.walletAddress = null;
-    console.log('✅ Jupiter Perps v2 initialized');
+    console.log('✅ Jupiter Perps v3 ready');
   }
 
-  async initialize(privateKeyBase58, options = {}) {
-    try {
-      const bytes = bs58.decode(privateKeyBase58);
-      this.keypair = Keypair.fromSecretKey(bytes);
-      this.walletAddress = this.keypair.publicKey.toString();
-      console.log('🔑 Wallet:', this.walletAddress);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+  async initialize(privateKeyBase58) {
+    this.keypair = Keypair.fromSecretKey(bs58.decode(privateKeyBase58));
+    this.walletAddress = this.keypair.publicKey.toString();
+    return { success: true };
   }
 
-  // Derive user account PDA
-  getUserAccountAddress(walletAddress) {
-    const wallet = new PublicKey(walletAddress);
-    const [userAccount] = PublicKey.findProgramAddressSync(
-      [Buffer.from('user'), wallet.toBuffer()],
-      JUPITER_PERPS_PROGRAM_ID
-    );
-    return userAccount;
-  }
-
-  // Get associated token account address (without creating)
-  getATAAddress(mint, owner) {
+  // Get user's USDC ATA
+  getUSDC_ATA(owner) {
     return PublicKey.findProgramAddressSync(
-      [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-      ASSOCIATED_TOKEN_PROGRAM_ID
+      [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), USDC.toBuffer()],
+      ATA_PROGRAM
     )[0];
   }
 
-  // Get or create associated token account
-  async getOrCreateATA(mint, owner) {
-    const ata = this.getATAAddress(mint, owner);
-    
-    try {
-      const info = await this.connection.getParsedAccountInfo(ata);
-      if (info.value) {
-        return ata;
-      }
-    } catch (e) {
-      // Account doesn't exist
-    }
-    
-    return ata;
+  // Get user account PDA
+  getUserAccount(owner) {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('user'), owner.toBuffer()],
+      JUPITER_PERPS
+    )[0];
   }
 
-  // Build instruction 4: SetTokenLedger
+  // Build SetTokenLedger (instruction 4)
   buildSetTokenLedgerInstruction(tokenAccount) {
     const data = Buffer.alloc(1);
     data.writeUInt8(4, 0);
+    return new TransactionInstruction({
+      programId: JUPITER_PERPS,
+      keys: [{ pubkey: tokenAccount, isSigner: false, isWritable: false }],
+      data,
+    });
+  }
+
+  // Build InstantIncreasePositionPreSwap (instruction 5)
+  buildPreSwapInstruction(user, userAccount, collateralATA, market, sizeUSD, direction) {
+    const data = Buffer.alloc(33);
+    data.writeUInt8(5, 0);  // instruction
+    data.writeUInt32LE(market, 1);
+    data.writeBigUInt64LE(BigInt(sizeUSD), 5);
+    data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
+    data.writeBigUInt64LE(BigInt(10000), 17);  // slippage
 
     return new TransactionInstruction({
-      programId: JUPITER_PERPS_PROGRAM_ID,
+      programId: JUPITER_PERPS,
       keys: [
-        { pubkey: tokenAccount, isSigner: false, isWritable: false },
+        { pubkey: user, isSigner: true, isWritable: true },
+        { pubkey: userAccount, isSigner: false, isWritable: true },
+        { pubkey: collateralATA, isSigner: false, isWritable: true },
+        { pubkey: POOLS['SOL'], isSigner: false, isWritable: false },  // pool
+        { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
+        { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },
+        { pubkey: SYSTEM, isSigner: false, isWritable: false },
       ],
       data,
     });
   }
 
-  // Build instruction 5: InstantIncreasePositionPreSwap
-  buildIncreasePositionPreSwapInstruction(
-    wallet, 
-    userAccount, 
-    collateralMint,
-    marketIndex,
-    sizeUSD,
-    direction
-  ) {
-    const data = Buffer.alloc(33);
-    data.writeUInt8(5, 0);
-    data.writeUInt32LE(marketIndex, 1);
-    data.writeBigUInt64LE(BigInt(sizeUSD), 5);
-    data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
-    data.writeBigUInt64LE(BigInt(10000), 17); // Slippage
-
-    const keys = [
-      { pubkey: wallet, isSigner: true, isWritable: true },
-      { pubkey: userAccount, isSigner: false, isWritable: true },
-      { pubkey: collateralMint, isSigner: false, isWritable: false },
-    ];
-
-    return new TransactionInstruction({
-      programId: JUPITER_PERPS_PROGRAM_ID,
-      keys,
-      data,
-    });
-  }
-
-  // Build instruction 6: InstantIncreasePosition  
-  buildIncreasePositionInstruction(wallet, userAccount, marketIndex, sizeUSD, direction) {
+  // Build InstantIncreasePosition (instruction 6)
+  buildIncreasePositionInstruction(user, userAccount, market, sizeUSD, direction) {
     const data = Buffer.alloc(33);
     data.writeUInt8(6, 0);
-    data.writeUInt32LE(marketIndex, 1);
+    data.writeUInt32LE(market, 1);
     data.writeBigUInt64LE(BigInt(sizeUSD), 5);
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
-    data.writeBigUInt64LE(BigInt(0), 17); // Min output
-    
-    const keys = [
-      { pubkey: wallet, isSigner: true, isWritable: true },
-      { pubkey: userAccount, isSigner: false, isWritable: true },
-    ];
+    data.writeBigUInt64LE(BigInt(0), 17);  // min output
 
     return new TransactionInstruction({
-      programId: JUPITER_PERPS_PROGRAM_ID,
-      keys,
+      programId: JUPITER_PERPS,
+      keys: [
+        { pubkey: user, isSigner: true, isWritable: true },
+        { pubkey: userAccount, isSigner: false, isWritable: true },
+      ],
       data,
     });
-  }
-
-  // Rotate to next RPC
-  rotateRpc() {
-    this.currentRpcIndex = (this.currentRpcIndex + 1) % this.rpcUrls.length;
-    this.connection = new Connection(this.rpcUrls[this.currentRpcIndex], 'confirmed');
-    console.log('Rotated to RPC:', this.rpcUrls[this.currentRpcIndex]);
   }
 
   async openPosition(symbol, side, amount, leverage) {
-    if (!this.keypair) {
-      return { success: false, error: 'Wallet not initialized' };
+    if (!this.keypair) return { error: 'No wallet' };
+
+    const marketIndex = MARKETS[symbol.toUpperCase()];
+    if (marketIndex === undefined) return { error: `Unknown: ${symbol}` };
+
+    try {
+      const wallet = this.keypair.publicKey;
+      const userAccount = this.getUserAccount(wallet);
+      const usdcATA = this.getUSDC_ATA(wallet);
+      const sizeUSD = Math.floor(amount * leverage * 1000000);
+
+      const tx = new Transaction();
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet;
+
+      // Add all 3 instructions
+      tx.add(this.buildSetTokenLedgerInstruction(usdcATA));
+      tx.add(this.buildPreSwapInstruction(wallet, userAccount, usdcATA, marketIndex, sizeUSD, side));
+      tx.add(this.buildIncreasePositionInstruction(wallet, userAccount, marketIndex, sizeUSD, side));
+
+      console.log('Simulating...');
+      const sim = await this.connection.simulateTransaction(tx);
+      
+      if (sim.value.err) {
+        console.log('Sim failed:', JSON.stringify(sim.value.err));
+        return { error: `Sim failed: ${JSON.stringify(sim.value.err)}` };
+      }
+
+      // Sign and send
+      tx.sign(this.keypair);
+      const sig = await this.connection.sendRawTransaction(tx.serialize());
+      
+      return { success: true, txid: sig };
+
+    } catch (e) {
+      console.error('Error:', e.message);
+      return { error: e.message };
     }
-
-    // Show user their Jupiter-compatible wallet
-    return { 
-      success: false, 
-      error: `🪐 *Jupiter Perps*
-
-Your trading wallet:
-\`${this.walletAddress}\`
-
-To trade:
-1. Copy this address
-2. Send USDC to this address
-3. Go to app.drift.trade
-4. Connect wallet & trade
-
-*The same wallet works on Jupiter!*
-
-Current balance: check with /onchain`,
-      wallet: this.walletAddress
-    };
   }
 
   async getPositions() { return []; }
-  async getAccountInfo() {
-    return { wallet: this.walletAddress };
-  }
-  async closePosition() { 
-    return { success: false, error: 'Not implemented' }; 
-  }
+  async getAccountInfo() { return { wallet: this.walletAddress }; }
+  async closePosition() { return { error: 'Not impl' }; }
 }
 
 module.exports = { JupiterPerpsService };
