@@ -51,7 +51,8 @@ class PerpetualsService {
       : isTestnet
         ? [
             'https://api.testnet.solana.com',
-            'https://testnet.solana.dev'
+            'https://testnet.solana.dev',
+            'https://testnet-rpc.solana.net'
           ]
         : [
             'https://api.mainnet-beta.solana.com',
@@ -60,7 +61,7 @@ class PerpetualsService {
           ];
     
     if (isTestnet) {
-      console.log('🔷 Using Drift TESTNET');
+      console.log('🔷 Using Drift TESTNET RPCs:', this.rpcEndpoints);
     }
     
     this.driftClient = null;
