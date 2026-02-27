@@ -148,23 +148,28 @@ class PerpetualsService {
             await this.driftClient.initialize({});
           }
           
-          // Check if user exists, if not create one
+          // Check if user exists, if not try to create one
           try {
-            const userExists = await this.driftClient.getUser();
-            if (!userExists) {
-              console.log('👤 Creating Drift user account...');
-              // Deposit some testnet USDC to create account
-              // For testnet, we need to create user first
-              await this.driftClient.initializeUser();
+            console.log('👤 Checking Drift user account...');
+            const user = await this.driftClient.getUser();
+            if (!user) {
+              console.log('👤 No user found, attempting to create...');
+              // Try various methods to create user
+              if (typeof this.driftClient.initializeUser === 'function') {
+                await this.driftClient.initializeUser();
+              } else if (typeof this.driftClient.createUser === 'function') {
+                await this.driftClient.createUser();
+              } else {
+                throw new Error('No user creation method available');
+              }
             }
           } catch (userError) {
             console.log('User check error:', userError.message);
-            // Try to create user
-            try {
-              await this.driftClient.initializeUser();
-            } catch (createError) {
-              console.log('Create user error:', createError.message);
-            }
+            // User doesn't exist - they need to create one on Drift UI
+            return { 
+              success: false, 
+              error: `No Drift account. Please:\n1. Go to https://app.drift.trade\n2. Connect your wallet\n3. Deposit USDC\n4. Then try again` 
+            };
           }
           
           if (typeof this.driftClient.subscribe === 'function') {
