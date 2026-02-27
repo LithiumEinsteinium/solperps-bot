@@ -58,6 +58,11 @@ class PerpetualsService {
       const keypair = Keypair.fromSecretKey(bytes);
       this.signer = new Wallet(keypair);
       
+      console.log('🔑 Wallet derived from private key:');
+      console.log('   Public key:', keypair.publicKey.toString());
+      console.log('   (Should match your Drift wallet)');
+      console.log('📋 Expected wallet:', this.walletAddress);
+      
       // Try each RPC
       for (const rpcUrl of this.rpcEndpoints) {
         try {
