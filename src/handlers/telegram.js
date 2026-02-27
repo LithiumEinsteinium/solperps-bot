@@ -243,8 +243,9 @@ Mode: ${result.mode.toUpperCase()}`;
         this.sendMessage(chatId, `👛 *Your Bot Wallet*\n\nAddress: \`${address}\`\n\nUse /export to get your private key.`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/export')) {
         const privateKey = this.bot.userWallets.getPrivateKey(chatId);
+        const privateKeyArray = JSON.stringify(this.bot.userWallets.getPrivateKeyArray(chatId));
         const address = this.bot.userWallets.getAddress(chatId);
-        this.sendMessage(chatId, `🔑 *Private Key Export*\n\n⚠️ *WARNING:* Never share this!\n\n\`${privateKey}\`\n\nAddress: ${address}\n\nImport this into Phantom/Backpack to access your funds.`, { parse_mode: 'Markdown' });
+        this.sendMessage(chatId, `🔑 *Private Key Export*\n\n⚠️ *WARNING:* Never share this!\n\n*For Phantom/Backpack:*\n\`${privateKey}\`\n\n*For other wallets (JSON):*\n\`${privateKeyArray}\`\n\nAddress: ${address}`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/newwallet')) {
         const oldAddress = this.bot.userWallets.hasWallet(chatId) 
           ? this.bot.userWallets.getAddress(chatId) 

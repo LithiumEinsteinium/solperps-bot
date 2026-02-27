@@ -5,6 +5,7 @@
  */
 
 const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
+const bs58 = require('bs58');
 const fs = require('fs');
 const path = require('path');
 
@@ -52,12 +53,13 @@ class UserWalletManager {
     
     // Generate new wallet
     const keypair = Keypair.generate();
-    const privateKey = Array.from(keypair.secretKey);
+    const privateKeyBytes = keypair.secretKey;
+    const privateKeyBase58 = bs58.encode(privateKeyBytes);
     const address = keypair.publicKey.toString();
     
     const wallet = {
       address,
-      privateKey: JSON.stringify(privateKey),
+      privateKey: privateKeyBase58, // Base58 format for Phantom
       createdAt: new Date().toISOString()
     };
     
@@ -77,11 +79,20 @@ class UserWalletManager {
   }
 
   /**
-   * Get private key for export
+   * Get private key in base58 format (Phantom-compatible)
    */
   getPrivateKey(chatId) {
     const wallet = this.getWallet(chatId);
     return wallet.privateKey;
+  }
+
+  /**
+   * Get private key as JSON array (for some wallets)
+   */
+  getPrivateKeyArray(chatId) {
+    const wallet = this.getWallet(chatId);
+    const bytes = bs58.decode(wallet.privateKey);
+    return Array.from(bytes);
   }
 
   /**
