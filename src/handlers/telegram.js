@@ -131,12 +131,12 @@ class TelegramHandler {
 /withdraw ADDRESS AMOUNT — Withdraw SOL
 
 *📊 Perpetuals*
-/perp SYM SIDE AMT LEV — Open perp
+/perp SYM SIDE AMT LEV — Open perp (paper trading)
 /perppositions — View positions
 /perpclose INDEX — Close position
-/perpinfo — Account info
-/testnet — Toggle testnet mode
-/connect ADDRESS — Phantom
+/perpsinfo — Account info
+
+*⚠️ Note:* Real Drift trading requires wallet setup via app.drift.trade. Currently in beta.
 
 *💼 Management*
 /positions — Open positions

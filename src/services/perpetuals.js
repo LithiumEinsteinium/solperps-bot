@@ -181,7 +181,7 @@ class PerpetualsService {
       throw lastError || new Error('All RPCs failed');
     } catch (error) {
       console.error('Drift init error:', error.message);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Drift unavailable. Use paper trading instead (default) - just use /perp without importing a wallet.' };
     }
   }
 
