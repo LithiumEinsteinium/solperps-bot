@@ -118,18 +118,36 @@ class UserWalletManager {
   /**
    * Import wallet from private key
    */
-  importWallet(chatId, privateKeyBase58) {
+  importWallet(chatId, privateKeyInput) {
     const id = chatId.toString();
     
+    let bytes;
+    
     try {
-      // Validate the key by decoding it
-      const bytes = bs58.decode(privateKeyBase58);
+      // Try parsing as JSON array first: [20, 120, 76, ...]
+      if (privateKeyInput.startsWith('[')) {
+        const arr = JSON.parse(privateKeyInput);
+        bytes = new Uint8Array(arr);
+      } 
+      // Try parsing as JSON array string
+      else if (privateKeyInput.includes(',')) {
+        const arr = privateKeyInput.replace('[', '').replace(']', '').split(',').map(n => parseInt(n.trim()));
+        bytes = new Uint8Array(arr);
+      }
+      // Try base58
+      else {
+        bytes = bs58.decode(privateKeyInput);
+      }
+      
       if (bytes.length !== 32) {
-        return { success: false, error: 'Invalid private key length' };
+        return { success: false, error: 'Invalid key: must be 32 bytes' };
       }
       
       const keypair = Keypair.fromSecretKey(bytes);
       const address = keypair.publicKey.toString();
+      
+      // Store as base58 for consistency
+      const privateKeyBase58 = bs58.encode(bytes);
       
       const wallet = {
         address,
@@ -142,7 +160,7 @@ class UserWalletManager {
       
       return { success: true, address };
     } catch (error) {
-      return { success: false, error: 'Invalid private key: ' + error.message };
+      return { success: false, error: 'Invalid key: ' + error.message };
     }
   }
 
