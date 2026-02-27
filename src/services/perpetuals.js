@@ -151,42 +151,37 @@ class PerpetualsService {
             await this.driftClient.initialize({});
           }
           
-          // Check if user exists, if not try to create one
+          // Try to subscribe - this will fail if no user exists
           try {
-            console.log('👤 Checking Drift user account...');
-            const user = await this.driftClient.getUser();
-            if (!user) {
-              console.log('👤 No user found, attempting to create...');
-              // Try various methods to create user
-              if (typeof this.driftClient.initializeUser === 'function') {
-                await this.driftClient.initializeUser();
-              } else if (typeof this.driftClient.createUser === 'function') {
-                await this.driftClient.createUser();
-              } else {
-                throw new Error('No user creation method available');
-              }
+            if (typeof this.driftClient.subscribe === 'function') {
+              await this.driftClient.subscribe();
+            } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
+              await this.driftClient.subscribeToAccounts();
             }
+          } catch (subError) {
+            console.log('Subscribe error (may indicate no user):', subError.message);
+            // If subscribe fails, try to get user positions directly
+            // to verify if user exists
+          }
+          
+          // Try to get user - if this fails, no user exists
+          try {
+            const user = this.driftClient.getUser();
+            console.log('✅ Drift user found');
           } catch (userError) {
-            console.log('User check error:', userError.message);
-            // User doesn't exist - they need to create one on Drift UI
+            // User doesn't exist
             return { 
               success: false, 
-              error: `⚠️ Drift account not found for this wallet.
+              error: `⚠️ No Drift account found.
 
 Wallet: ${this.walletAddress ? this.walletAddress.slice(0,8) + '...' + this.walletAddress.slice(-8) : 'unknown'}
 
-Options:
-1. Use Paper Trading - Try /perp without importing (uses paper)
-2. Make sure this wallet is connected to Drift at app.drift.trade
-
-The imported wallet must be the SAME one you use on Drift.`
+Your wallet needs a Drift account. Please:
+1. Go to https://app.drift.trade
+2. Connect this wallet
+3. Deposit USDC
+4. Come back and try again`
             };
-          }
-          
-          if (typeof this.driftClient.subscribe === 'function') {
-            await this.driftClient.subscribe();
-          } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
-            await this.driftClient.subscribeToAccounts();
           }
           
           this.initialized = true;
