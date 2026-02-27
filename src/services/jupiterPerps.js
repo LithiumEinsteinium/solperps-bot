@@ -119,25 +119,27 @@ class JupiterPerpsService {
     }
   }
 
-  // Open position - placeholder (needs transaction building)
+  // Open position - requires building complex transaction
   async openPosition(symbol, side, amount, leverage) {
-    // Building actual transactions requires IDL and instruction encoding
-    // For now, return a message with instructions
-    
     const poolAddr = POOLS[symbol.toUpperCase()];
     if (!poolAddr) {
       return { success: false, error: `Unknown market: ${symbol}` };
     }
     
+    // Show user their wallet and give instructions
     return {
       success: false,
-      error: `Jupiter Perps requires on-chain transaction signing.
+      error: `⚠️ Jupiter Perps requires on-chain transaction signing.
 
-To open a ${side} position:
-1. Go to app.drift.trade or use their UI
-2. Use your wallet: ${this.walletAddress}
+Your wallet: ${this.walletAddress}
 
-Note: Direct API integration coming soon.`
+To trade:
+1. Copy this wallet address
+2. Go to app.drift.trade or jup.ag/perps
+3. Connect and fund your account
+4. Trade using this same wallet
+
+Note: API integration requires IDL (not yet public).`
     };
   }
 
