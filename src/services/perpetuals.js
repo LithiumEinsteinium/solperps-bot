@@ -96,6 +96,15 @@ class PerpetualsService {
             await this.driftClient.fetchUser();
           }
           
+          // Try to create user if it doesn't exist
+          try {
+            console.log('👤 Creating Drift user...');
+            await this.driftClient.createUser();
+            console.log('✅ User created');
+          } catch (createError) {
+            console.log('Create user error:', createError.message);
+          }
+          
           this.initialized = true;
           console.log('✅ Drift perpetuals initialized');
           return { success: true };
