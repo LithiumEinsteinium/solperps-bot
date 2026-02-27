@@ -77,6 +77,21 @@ class PerpetualsService {
     const isTestnet = options.testnet || process.env.DRIFT_TESTNET === 'true';
     this.isTestnet = isTestnet;
     
+    // Update RPC endpoints based on network
+    this.rpcEndpoints = process.env.SOLANA_RPC 
+      ? [process.env.SOLANA_RPC]
+      : isTestnet
+        ? [
+            'https://api.testnet.solana.com',
+            'https://testnet.solana.dev',
+            'https://testnet-rpc.solana.net'
+          ]
+        : [
+            'https://api.mainnet-beta.solana.com',
+            'https://rpc.ankr.com/solana',
+            'https://solana-rpc.publicnode.com'
+          ];
+    
     if (isTestnet) {
       console.log('🔷 Using Drift TESTNET');
     }
