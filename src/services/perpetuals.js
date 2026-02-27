@@ -49,6 +49,8 @@ class PerpetualsService {
   }
 
   async initialize(privateKeyBase58, options = {}) {
+    this.walletAddress = options.walletAddress;
+    
     if (!DriftClient) {
       return { success: false, error: 'Drift SDK not available' };
     }
@@ -73,24 +75,22 @@ class PerpetualsService {
             connection: this.connection,
             wallet: this.signer,
             network: 'mainnet',
+            // Disable WebSocket to avoid 429 errors
+            subscriptionConfig: {
+              type: 'polling',
+              interval: 5000,
+            },
           };
           
           this.driftClient = new DriftClient(sdkConfig);
           
-          // Initialize and subscribe - try different approaches
+          // Initialize without subscribe - use polling instead
           if (typeof this.driftClient.initialize === 'function') {
-            console.log('📋 Initializing Drift...');
+            console.log('📋 Initializing Drift (polling mode)...');
             await this.driftClient.initialize({});
           }
           
-          // MUST subscribe before using - try all methods
-          if (typeof this.driftClient.subscribe === 'function') {
-            console.log('📡 Subscribing to Drift...');
-            await this.driftClient.subscribe();
-            console.log('✅ Subscribed');
-          } 
-          
-          // Also try fetchUser if it exists
+          // Try to fetch user directly
           if (typeof this.driftClient.fetchUser === 'function') {
             console.log('📡 Fetching user...');
             await this.driftClient.fetchUser();
