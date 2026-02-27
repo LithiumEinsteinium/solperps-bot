@@ -381,7 +381,7 @@ module.exports = { SolPerpsBot };
 if (require.main === module) {
   (async () => {
     const config = {
-      rpcUrl: process.env.RPC_URL || 'https://api.mainnet-beta.solana.com',
+      rpcUrl: process.env.RPC_URL || process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com',
       paperTrading: process.env.PAPER_TRADING === 'true',
       autoTrade: process.env.AUTO_TRADE === 'true',
       jupiterConfig: {},
