@@ -59,6 +59,11 @@ class SolPerpsBot {
     // Built-in wallet per user
     this.userWallets = new UserWalletManager('./data/user_wallets.json');
     
+    // On-chain trading
+    this.trader = new (require('./services/onChainTrader'))({
+      rpcUrl: config.rpcUrl
+    });
+    
     // Price alerts
     this.priceAlerts = new Map();
     this.priceAlertInterval = null;
@@ -224,6 +229,29 @@ class SolPerpsBot {
   // Get user's bot wallet private key for export
   getUserWalletPrivateKey(chatId) {
     return this.userWallets.getPrivateKey(chatId);
+  }
+
+  // ==================== ON-CHAIN TRADING ====================
+
+  async getOnChainBalance(chatId) {
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return { sol: 0, error: 'No wallet' };
+    
+    return await this.trader.getBalance(privateKey);
+  }
+
+  async swapTokens(chatId, fromToken, toToken, amount) {
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return { success: false, error: 'No wallet' };
+    
+    return await this.trader.swap(privateKey, fromToken, toToken, amount);
+  }
+
+  async transferSol(chatId, toAddress, amount) {
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return { success: false, error: 'No wallet' };
+    
+    return await this.trader.transfer(privateKey, toAddress, amount);
   }
 
   // ==================== POSITIONS ====================

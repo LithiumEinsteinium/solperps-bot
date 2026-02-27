@@ -123,6 +123,11 @@ class TelegramHandler {
 /export — Export private key
 /newwallet — New wallet
 /confirmnewwallet — Confirm new wallet
+
+*⛓️ On-Chain*
+/deposit — Get deposit address
+/onchain — Check on-chain balance
+/withdraw ADDRESS AMOUNT — Withdraw SOL
 /connect ADDRESS — Phantom
 
 *💼 Management*
@@ -284,6 +289,38 @@ Mode: ${result.mode.toUpperCase()}`;
           this.sendMessage(chatId, `✅ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n⚠️ *IMPORTANT:* Export your new wallet private key with /export`, { parse_mode: 'Markdown' });
         } catch (e) {
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
+      } else if (text.startsWith('/deposit')) {
+        const address = this.bot.userWallets?.getAddress(chatId);
+        this.sendMessage(chatId, `💰 *Deposit SOL*\n\nSend SOL to this address:\n\n\`${address}\`\n\nThen use /onchain to check your balance.`, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/onchain')) {
+        try {
+          const balance = await this.bot.getOnChainBalance(chatId);
+          if (balance.error) {
+            this.sendMessage(chatId, `❌ ${balance.error}`);
+          } else {
+            this.sendMessage(chatId, `⛓️ *On-Chain Balance*\n\nSOL: ${balance.sol.toFixed(4)}\n\nUse /deposit to add funds.`, { parse_mode: 'Markdown' });
+          }
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
+      } else if (text.startsWith('/withdraw ')) {
+        const parts = text.split(' ');
+        if (parts.length >= 3) {
+          const toAddress = parts[1];
+          const amount = parseFloat(parts[2]);
+          try {
+            const result = await this.bot.transferSol(chatId, toAddress, amount);
+            if (result.success) {
+              this.sendMessage(chatId, `✅ *Withdrawal Complete*\n\nSent ${amount} SOL to \`${toAddress}\`\n\nTx: ${result.txid}`, { parse_mode: 'Markdown' });
+            } else {
+              this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+            }
+          } catch (e) {
+            this.sendMessage(chatId, `❌ Error: ${e.message}`);
+          }
+        } else {
+          this.sendMessage(chatId, `Usage: /withdraw ADDRESS AMOUNT\n\nExample: /withdraw 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg 1`);
         }
       } else if (text.startsWith('/long ')) {
         const parts = text.split(' ');
