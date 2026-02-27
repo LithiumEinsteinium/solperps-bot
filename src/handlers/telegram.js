@@ -361,7 +361,11 @@ Mode: ${result.mode.toUpperCase()}`;
             this.sendMessage(chatId, `⏳ Opening ${leverage}x ${side} position on ${symbol} with ${amount} USDC...`);
             const result = await this.bot.openPerpPosition(chatId, symbol, side, amount, leverage);
             if (result.success) {
-              this.sendMessage(chatId, `✅ *Perp Position Opened*\n\n${symbol}: ${side.toUpperCase()} ${leverage}x\nAmount: ${amount} USDC\n\nTx: \`${result.txid}\``, { parse_mode: 'Markdown' });
+              if (result.message) {
+                this.sendMessage(chatId, result.message, { parse_mode: 'Markdown' });
+              } else {
+                this.sendMessage(chatId, `✅ *Perp Position Opened*\n\n${symbol}: ${side.toUpperCase()} ${leverage}x\nAmount: ${amount} USDC\n\nTx: \`${result.txid}\``, { parse_mode: 'Markdown' });
+              }
             } else {
               this.sendMessage(chatId, `❌ Failed: ${result.error}`);
             }
@@ -379,7 +383,11 @@ Mode: ${result.mode.toUpperCase()}`;
           try {
             const result = await this.bot.closePerpPosition(chatId, positionIndex);
             if (result.success) {
-              this.sendMessage(chatId, `✅ *Position Closed*\n\nTx: \`${result.txid}\``, { parse_mode: 'Markdown' });
+              if (result.message) {
+                this.sendMessage(chatId, result.message, { parse_mode: 'Markdown' });
+              } else {
+                this.sendMessage(chatId, `✅ *Position Closed*\n\nTx: \`${result.txid}\``, { parse_mode: 'Markdown' });
+              }
             } else {
               this.sendMessage(chatId, `❌ Failed: ${result.error}`);
             }
@@ -397,8 +405,12 @@ Mode: ${result.mode.toUpperCase()}`;
           } else {
             let msg = `📊 *Perp Positions*\n\n`;
             positions.forEach((p, i) => {
-              msg += `${i}. ${p.market} ${p.side} ${p.leverage}x\n`;
-              msg += `   Size: $${p.size.toFixed(2)} | PnL: $${p.pnl.toFixed(2)}\n\n`;
+              msg += `${i}. ${p.symbol} ${p.side} ${p.leverage}x\n`;
+              msg += `   Size: $${p.size || p.sizeUsd} | Entry: $${p.entryPrice}\n`;
+              if (p.pnl !== undefined) {
+                msg += `   PnL: $${p.pnl.toFixed(2)}\n`;
+              }
+              msg += '\n';
             });
             msg += `Use /perpclose INDEX to close`;
             this.sendMessage(chatId, msg, { parse_mode: 'Markdown' });

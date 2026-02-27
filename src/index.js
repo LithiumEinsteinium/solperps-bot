@@ -293,6 +293,30 @@ class SolPerpsBot {
   }
 
     async openPerpPosition(chatId, symbol, side, amount, leverage) {
+    // Paper trading mode - simulate perp positions
+    if (this.isPaperTrading) {
+      const position = {
+        id: 'perp_' + Date.now(),
+        symbol,
+        side,
+        size: amount,
+        leverage,
+        entryPrice: await this.jupiter.getPrice(symbol),
+        openedAt: new Date().toISOString(),
+        type: 'perp'
+      };
+      
+      this.positions.add(position);
+      console.log(`📝 [PAPER PERP] Opening ${side} ${leverage}x: ${amount} ${symbol} @ ${position.entryPrice}`);
+      
+      return { 
+        success: true, 
+        position,
+        mode: 'paper',
+        message: `📝 *Paper Perp Opened*\n\n${symbol}: ${side.toUpperCase()} ${leverage}x\nAmount: ${amount} USDC\nEntry: $${position.entryPrice}`
+      };
+    }
+    
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
     // Check user testnet mode
@@ -318,6 +342,31 @@ class SolPerpsBot {
   }
 
   async closePerpPosition(chatId, positionIndex) {
+    // Paper trading mode
+    if (this.isPaperTrading) {
+      const positions = this.positions.getAll().filter(p => p.type === 'perp');
+      const position = positions[positionIndex];
+      
+      if (!position) {
+        return { success: false, error: 'Position not found' };
+      }
+      
+      const currentPrice = await this.jupiter.getPrice(position.symbol);
+      const pnl = position.side === 'long' 
+        ? (currentPrice - position.entryPrice) * position.size
+        : (position.entryPrice - currentPrice) * position.size;
+      
+      this.positions.remove(position.id);
+      
+      return { 
+        success: true, 
+        position,
+        pnl,
+        mode: 'paper',
+        message: `📝 *Paper Perp Closed*\n\n${position.symbol}: ${position.side.toUpperCase()}\nEntry: $${position.entryPrice}\nExit: $${currentPrice}\nPnL: $${pnl.toFixed(2)}`
+      };
+    }
+    
     if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
@@ -341,6 +390,17 @@ class SolPerpsBot {
   }
 
   async getPerpPositions(chatId) {
+    // Paper trading mode
+    if (this.isPaperTrading) {
+      const perpPositions = this.positions.getAll().filter(p => p.type === 'perp');
+      return perpPositions.map((p, i) => ({
+        index: i,
+        ...p,
+        currentPrice: this.jupiter.getPriceSync ? this.jupiter.getPriceSync(p.symbol) : null,
+        mode: 'paper'
+      }));
+    }
+    
     if (!this.perps) return [];
     
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;

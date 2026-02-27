@@ -168,7 +168,19 @@ class PerpetualsService {
             // User doesn't exist - they need to create one on Drift UI
             return { 
               success: false, 
-              error: `No Drift account. Please:\n1. Go to https://app.drift.trade\n2. Connect your wallet\n3. Deposit USDC\n4. Then try again` 
+              error: `⚠️ Drift account required.
+
+The connected wallet doesn't have a Drift account. Options:
+
+1. **Use Paper Trading** - Try /perp without importing a wallet (uses paper money)
+
+2. **Create Drift Account**:
+   - Go to https://app.drift.trade
+   - Connect your wallet  
+   - Deposit USDC
+   - Come back and try again
+
+Note: Your imported wallet must be the SAME one connected to Drift.`
             };
           }
           
