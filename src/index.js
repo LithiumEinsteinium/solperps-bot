@@ -333,29 +333,23 @@ class SolPerpsBot {
       };
     }
     
-    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
-    
-    // Try Jupiter Perps first (direct on-chain)
+        // Use Jupiter Perps (direct on-chain)
     if (this.jupiterPerps) {
       const jupPrivateKey = this.getUserWalletPrivateKey(chatId);
       const jupWalletAddress = this.userWallets.getAddress(chatId);
       
       if (jupPrivateKey) {
+        console.log('🪐 Using Jupiter Perps...');
         await this.jupiterPerps.initialize(jupPrivateKey, { walletAddress: jupWalletAddress });
         
-        // Try to open position
         const result = await this.jupiterPerps.openPosition(symbol, side, amount, leverage);
-        
-        // If Jupiter gives a clear "not implemented" error, try Drift instead
-        if (result.error && result.error.includes('API integration coming soon')) {
-          console.log('Jupiter not ready, trying Drift...');
-        } else {
-          return result;
-        }
+        return result;
       }
     }
     
-    // Fall back to Drift
+    // Fall back to Drift if no Jupiter
+    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
+    
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
     const privateKey = this.getUserWalletPrivateKey(chatId);
     const walletAddress = this.userWallets.getAddress(chatId);
