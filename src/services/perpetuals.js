@@ -50,18 +50,29 @@ class PerpetualsService {
    * Initialize Drift client with user's wallet
    */
   async initialize(privateKeyBase58) {
+    // Try to load the SDK if not already loaded
     if (!DriftClient) {
-      // Try to load the SDK again in case it wasn't installed initially
       try {
+        console.log('Attempting to load Drift SDK...');
         const drift = require('@drift-labs/sdk');
         DriftClient = drift.DriftClient;
         Wallet = drift.Wallet;
         BN = drift.BN;
         MarketType = drift.MarketType;
         PositionDirection = drift.PositionDirection;
-        console.log('✅ Drift SDK loaded on retry');
+        console.log('✅ Drift SDK loaded successfully');
       } catch (retryError) {
-        return { success: false, error: 'Drift SDK not available. Please ensure @drift-labs/sdk is installed: npm install @drift-labs/sdk' };
+        console.log('Drift SDK load error:', retryError.message);
+        // List possible causes
+        const possibleReasons = [];
+        if (retryError.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
+          possibleReasons.push('Node.js version incompatibility (need Node 18-24)');
+        }
+        if (retryError.message.includes('bindings')) {
+          possibleReasons.push('Native bindings issue - try rebuilding');
+        }
+        const reason = possibleReasons.length > 0 ? ` (${possibleReasons.join(', ')})` : '';
+        return { success: false, error: `Drift SDK load failed${reason}. Check server logs for details.` };
       }
     }
     
