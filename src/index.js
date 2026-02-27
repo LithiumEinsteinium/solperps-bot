@@ -8,7 +8,19 @@ const { TelegramHandler } = require('./handlers/telegram');
 const { PhantomWalletManager } = require('./services/phantomWallet');
 const { UserWalletManager } = require('./services/userWallet');
 const { OnChainTrader } = require('./services/onChainTrader');
-const { PerpetualsService } = require('./services/perpetuals');
+// Try to load Drift SDK, but don't fail if it doesn't work
+let PerpetualsService;
+let MARKETS;
+
+try {
+  const perpsModule = require('./services/perpetuals.js');
+  PerpetualsService = perpsModule.PerpetualsService;
+  MARKETS = perpsModule.MARKETS;
+  console.log('📊 Perpetuals module loaded');
+} catch (error) {
+  console.log('⚠️ Perpetuals not available:', error.message);
+  PerpetualsService = null;
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -67,9 +79,9 @@ class SolPerpsBot {
     });
     
     // Perpetuals trading (Drift)
-    this.perps = new PerpetualsService({
+    this.perps = PerpetualsService ? new PerpetualsService({
       rpcUrl: config.rpcUrl
-    });
+    }) : null;
     
     // Price alerts
     this.priceAlerts = new Map();
@@ -264,6 +276,7 @@ class SolPerpsBot {
   // ==================== PERPETUALS ====================
 
   async initPerps(chatId) {
+    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     const privateKey = this.getUserWalletPrivateKey(chatId);
     if (!privateKey) return { success: false, error: 'No wallet' };
     
@@ -271,6 +284,8 @@ class SolPerpsBot {
   }
 
   async openPerpPosition(chatId, symbol, side, amount, leverage) {
+    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
+    
     // Initialize perps if not already
     if (!this.perps.initialized) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
@@ -282,6 +297,8 @@ class SolPerpsBot {
   }
 
   async closePerpPosition(chatId, positionIndex) {
+    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
+    
     if (!this.perps.initialized) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return { success: false, error: 'No wallet' };
@@ -292,6 +309,8 @@ class SolPerpsBot {
   }
 
   async getPerpPositions(chatId) {
+    if (!this.perps) return [];
+    
     if (!this.perps.initialized) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return [];
@@ -302,6 +321,8 @@ class SolPerpsBot {
   }
 
   async getPerpAccountInfo(chatId) {
+    if (!this.perps) return null;
+    
     if (!this.perps.initialized) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return null;
