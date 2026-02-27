@@ -256,7 +256,13 @@ class SolPerpsBot {
     const privateKey = this.getUserWalletPrivateKey(chatId);
     if (!privateKey) return { sol: 0, error: 'No wallet' };
     
-    return await this.trader.getBalance(privateKey);
+    const solBalance = await this.trader.getBalance(privateKey);
+    const usdcBalance = await this.trader.getTokenBalance(privateKey, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    
+    return {
+      sol: solBalance.sol,
+      usdc: usdcBalance.amount || 0
+    };
   }
 
   async swapTokens(chatId, fromToken, toToken, amount) {
@@ -290,7 +296,10 @@ class SolPerpsBot {
     if (!this.perps.initialized) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
       if (!privateKey) return { success: false, error: 'No wallet' };
-      await this.perps.initialize(privateKey);
+      const initResult = await this.perps.initialize(privateKey);
+      if (!initResult.success) {
+        return { success: false, error: 'Init failed: ' + initResult.error };
+      }
     }
     
     return await this.perps.openPosition(symbol, side, amount, leverage);
