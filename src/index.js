@@ -7,6 +7,7 @@ const { SignalEngine } = require('./strategies/signalEngine');
 const { TelegramHandler } = require('./handlers/telegram');
 const { PhantomWalletManager } = require('./services/phantomWallet');
 const { UserWalletManager } = require('./services/userWallet');
+const { OnChainTrader } = require('./services/onChainTrader');
 
 const PORT = process.env.PORT || 3000;
 
@@ -60,7 +61,7 @@ class SolPerpsBot {
     this.userWallets = new UserWalletManager('./data/user_wallets.json');
     
     // On-chain trading
-    this.trader = new (require('./services/onChainTrader'))({
+    this.trader = new OnChainTrader({
       rpcUrl: config.rpcUrl
     });
     
