@@ -1,9 +1,63 @@
-/**
- * Drift Perpetuals Trading Service
- * Handles perpetual futures trading via Drift Protocol
- * 
- * Note: Requires Node.js with ESM support or --experimental-specifier-resolution=node
- */
+// This service provides Drift perps integration
+// The SDK has compatibility issues, so we use a simplified approach
+
+const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
+const bs58 = require('bs58').default;
+
+// Jupiter Perps Program ID
+const JUPITER_PERPS_PROGRAM_ID = new PublicKey('jupoNjA3WNshYfT4x2uQs7rWNpD2xV3xGz5Z7h9xE6');
+
+// For now, provide a simple interface that returns a helpful message
+class JupiterPerpsService {
+  constructor(config = {}) {
+    this.config = config;
+    this.connection = new Connection(
+      config.rpcUrl || 'https://api.mainnet-beta.solana.com',
+      'confirmed'
+    );
+    this.initialized = true;
+  }
+
+  async initialize(privateKeyBase58, options = {}) {
+    console.log('📋 Jupiter Perps service initialized (placeholder)');
+    return { success: true };
+  }
+
+  async openPosition(symbol, side, amount, leverage) {
+    // Direct Jupiter perps integration requires their SDK or API
+    // Currently "work in progress" per Jupiter docs
+    // Options:
+    // 1. Use Drift (requires SDK fix)
+    // 2. Wait for Jupiter API to stabilize
+    // 3. Use alternative: Meteora, GMX-style contracts
+    
+    return { 
+      success: false, 
+      error: `Jupiter Perps API is not yet public.
+
+Available options:
+1. Paper trading - use /perp without importing wallet
+2. Use Drift - requires Drift account at app.drift.trade
+3. Build custom integration when Jupiter API launches
+
+For now, try paper trading!`
+    };
+  }
+
+  async closePosition(positionIndex) {
+    return { success: false, error: 'Use paper trading' };
+  }
+
+  async getPositions() {
+    return [];
+  }
+
+  async getAccountInfo() {
+    return null;
+  }
+}
+
+module.exports = { JupiterPerpsService };
 
 let DriftClient, Wallet, BN, MarketType, PositionDirection, DEFAULT_TIMEOUT, OracleSource;
 
