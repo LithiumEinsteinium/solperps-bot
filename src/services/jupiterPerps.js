@@ -66,7 +66,10 @@ class JupiterPerpsService {
     data.writeUInt8(4, 0);
     return new TransactionInstruction({
       programId: JUPITER_PERPS,
-      keys: [{ pubkey: tokenAccount, isSigner: false, isWritable: false }],
+      keys: [
+        { pubkey: tokenAccount, isSigner: false, isWritable: false },
+        { pubkey: this.keypair.publicKey, isSigner: true, isWritable: false },
+      ],
       data,
     });
   }
@@ -80,20 +83,28 @@ class JupiterPerpsService {
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
     data.writeBigUInt64LE(BigInt(10000), 17);
 
-    // More accounts from successful transaction
+    // All accounts from successful transaction
     const priceFeed = parsePubkey('DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e');
+    const pool = POOLS['SOL'];
+    const referrer = new PublicKey('Ag28fGtwtpnqassHURUBsQ1WfiyaWWzDDNs4Q28qHRjv');
+    const custody = new PublicKey('3ZVGKnmbTCUgVSzK2u5JMLTxNv1LUzZcRkWo4mSj9tF9');
+    const custodyTokenAccount = new PublicKey('J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW');
+    const userTokenAccount = new PublicKey('4Cdy1uXpGVgjD7qmo49jTAK1eBj1kSZ4UVwZVVpAUoVs');
 
     return new TransactionInstruction({
       programId: JUPITER_PERPS,
       keys: [
-        { pubkey: user, isSigner: true, isWritable: true },
-        { pubkey: userAccount, isSigner: false, isWritable: true },
-        { pubkey: collateralATA, isSigner: false, isWritable: true },
-        { pubkey: POOLS['SOL'], isSigner: false, isWritable: false },
-        { pubkey: priceFeed, isSigner: false, isWritable: false },
-        { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-        { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },
-        { pubkey: SYSTEM, isSigner: false, isWritable: false },
+        { pubkey: user, isSigner: true, isWritable: true },           // 0: user
+        { pubkey: userAccount, isSigner: false, isWritable: true },  // 1: user account
+        { pubkey: collateralATA, isSigner: false, isWritable: true }, // 2: token account
+        { pubkey: pool, isSigner: false, isWritable: false },          // 3: pool
+        { pubkey: custody, isSigner: false, isWritable: false },       // 4: custody
+        { pubkey: custodyTokenAccount, isSigner: false, isWritable: false }, // 5: custody token
+        { pubkey: priceFeed, isSigner: false, isWritable: false },     // 6: price feed
+        { pubkey: referrer, isSigner: false, isWritable: false },      // 7: referrer
+        { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false }, // 8: token program
+        { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },    // 9: ATA program
+        { pubkey: SYSTEM, isSigner: false, isWritable: false },        // 10: system
       ],
       data,
     });
@@ -106,13 +117,21 @@ class JupiterPerpsService {
     data.writeUInt32LE(market, 1);
     data.writeBigUInt64LE(BigInt(sizeUSD), 5);
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 13);
-    data.writeBigUInt64LE(BigInt(0), 17);  // min output
+    data.writeBigUInt64LE(BigInt(0), 17);
+
+    const pool = POOLS['SOL'];
+    const priceFeed = parsePubkey('DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e');
+    const custody = new PublicKey('3ZVGKnmbTCUgVSzK2u5JMLTxNv1LUzZcRkWo4mSj9tF9');
 
     return new TransactionInstruction({
       programId: JUPITER_PERPS,
       keys: [
         { pubkey: user, isSigner: true, isWritable: true },
         { pubkey: userAccount, isSigner: false, isWritable: true },
+        { pubkey: pool, isSigner: false, isWritable: false },
+        { pubkey: priceFeed, isSigner: false, isWritable: false },
+        { pubkey: custody, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
       ],
       data,
     });
