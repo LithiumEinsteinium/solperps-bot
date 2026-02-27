@@ -8,6 +8,7 @@ const { TelegramHandler } = require('./handlers/telegram');
 const { PhantomWalletManager } = require('./services/phantomWallet');
 const { UserWalletManager } = require('./services/userWallet');
 const { OnChainTrader } = require('./services/onChainTrader');
+const { PerpetualsService } = require('./services/perpetuals');
 
 const PORT = process.env.PORT || 3000;
 
@@ -62,6 +63,11 @@ class SolPerpsBot {
     
     // On-chain trading
     this.trader = new OnChainTrader({
+      rpcUrl: config.rpcUrl
+    });
+    
+    // Perpetuals trading (Drift)
+    this.perps = new PerpetualsService({
       rpcUrl: config.rpcUrl
     });
     
@@ -253,6 +259,56 @@ class SolPerpsBot {
     if (!privateKey) return { success: false, error: 'No wallet' };
     
     return await this.trader.transfer(privateKey, toAddress, amount);
+  }
+
+  // ==================== PERPETUALS ====================
+
+  async initPerps(chatId) {
+    const privateKey = this.getUserWalletPrivateKey(chatId);
+    if (!privateKey) return { success: false, error: 'No wallet' };
+    
+    return await this.perps.initialize(privateKey);
+  }
+
+  async openPerpPosition(chatId, symbol, side, amount, leverage) {
+    // Initialize perps if not already
+    if (!this.perps.initialized) {
+      const privateKey = this.getUserWalletPrivateKey(chatId);
+      if (!privateKey) return { success: false, error: 'No wallet' };
+      await this.perps.initialize(privateKey);
+    }
+    
+    return await this.perps.openPosition(symbol, side, amount, leverage);
+  }
+
+  async closePerpPosition(chatId, positionIndex) {
+    if (!this.perps.initialized) {
+      const privateKey = this.getUserWalletPrivateKey(chatId);
+      if (!privateKey) return { success: false, error: 'No wallet' };
+      await this.perps.initialize(privateKey);
+    }
+    
+    return await this.perps.closePosition(positionIndex);
+  }
+
+  async getPerpPositions(chatId) {
+    if (!this.perps.initialized) {
+      const privateKey = this.getUserWalletPrivateKey(chatId);
+      if (!privateKey) return [];
+      await this.perps.initialize(privateKey);
+    }
+    
+    return await this.perps.getPositions();
+  }
+
+  async getPerpAccountInfo(chatId) {
+    if (!this.perps.initialized) {
+      const privateKey = this.getUserWalletPrivateKey(chatId);
+      if (!privateKey) return null;
+      await this.perps.initialize(privateKey);
+    }
+    
+    return await this.perps.getAccountInfo();
   }
 
   // ==================== POSITIONS ====================

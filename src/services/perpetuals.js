@@ -1,0 +1,267 @@
+/**
+ * Drift Perpetuals Trading Service
+ * Handles perpetual futures trading via Drift Protocol
+ */
+
+const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
+const bs58 = require('bs58').default;
+const { 
+  DriftClient, 
+  Wallet, 
+  BN, 
+  MarketType,
+  PositionDirection,
+  DEFAULT_TIMEOUT,
+  OracleSource
+} = require('@drift-labs/sdk');
+
+const MARKETS = {
+  'SOL': { marketIndex: 0, symbol: 'SOL-PERP' },
+  'BTC': { marketIndex: 1, symbol: 'BTC-PERP' },
+  'ETH': { marketIndex: 2, symbol: 'ETH-PERP' },
+  'SOL Perp': { marketIndex: 0, symbol: 'SOL-PERP' },
+  'BTC Perp': { marketIndex: 1, symbol: 'BTC-PERP' },
+  'ETH Perp': { marketIndex: 2, symbol: 'ETH-PERP' }
+};
+
+class PerpetualsService {
+  constructor(config = {}) {
+    this.config = config;
+    this.connection = new Connection(
+      config.rpcUrl || 'https://api.mainnet-beta.solana.com',
+      'confirmed'
+    );
+    
+    this.driftClient = null;
+    this.signer = null;
+    this.initialized = false;
+  }
+
+  /**
+   * Initialize Drift client with user's wallet
+   */
+  async initialize(privateKeyBase58) {
+    try {
+      const bytes = bs58.decode(privateKeyBase58);
+      const keypair = Keypair.fromSecretKey(bytes);
+      this.signer = new Wallet(keypair);
+      
+      const sdkConfig = {
+        connection: this.connection,
+        wallet: this.signer,
+        network: 'mainnet',
+        timeout: 30000,
+        defaultOptions: {
+          commitment: 'confirmed',
+          preflightCommitment: 'confirmed'
+        }
+      };
+      
+      this.driftClient = new DriftClient(sdkConfig);
+      await this.driftClient.initialize({});
+      await this.driftClient.subscribe();
+      
+      this.initialized = true;
+      console.log('✅ Drift perpetuals initialized');
+      return { success: true };
+    } catch (error) {
+      console.error('Drift init error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get market info for a symbol
+   */
+  getMarket(symbol) {
+    const upper = symbol.toUpperCase().replace('-PERP', '').replace(' PERP', '');
+    return MARKETS[upper] || null;
+  }
+
+  /**
+   * Open a perpetual position
+   */
+  async openPosition(symbol, side, amount, leverage = 1) {
+    if (!this.initialized) {
+      return { success: false, error: 'Not initialized' };
+    }
+
+    try {
+      const market = this.getMarket(symbol);
+      if (!market) {
+        return { success: false, error: `Unknown market: ${symbol}` };
+      }
+
+      const direction = side.toLowerCase() === 'long' 
+        ? PositionDirection.LONG 
+        : PositionDirection.SHORT;
+
+      // Amount in USDC (quote currency)
+      const amountBN = new BN(amount * 1000000); // Convert to micro-USDC
+
+      // Calculate base asset amount based on leverage
+      const baseAssetAmount = amountBN.mul(new BN(leverage));
+
+      console.log(`📊 Opening ${side} ${leverage}x on ${symbol}: ${amount} USDC`);
+
+      // Open the position
+      const tx = await this.driftClient.openPosition({
+        marketIndex: market.marketIndex,
+        direction,
+        baseAssetAmount,
+        limitPrice: undefined, // Use oracle price
+        oraclePriceOffset: 0,
+        auctionDuration: 5,
+        auctionStartPrice: undefined,
+        auctionEndPrice: undefined
+      });
+
+      console.log('✅ Position opened:', tx);
+      
+      return {
+        success: true,
+        txid: tx,
+        market: market.symbol,
+        side,
+        amount,
+        leverage
+      };
+
+    } catch (error) {
+      console.error('Open position error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Close a position
+   */
+  async closePosition(positionIndex) {
+    if (!this.initialized) {
+      return { success: false, error: 'Not initialized' };
+    }
+
+    try {
+      const positions = await this.getPositions();
+      if (!positions[positionIndex]) {
+        return { success: false, error: 'Position not found' };
+      }
+
+      const position = positions[positionIndex];
+      
+      const tx = await this.driftClient.closePosition(position.marketIndex);
+      
+      return {
+        success: true,
+        txid: tx,
+        positionIndex
+      };
+
+    } catch (error) {
+      console.error('Close position error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get all open positions
+   */
+  async getPositions() {
+    if (!this.initialized) {
+      return [];
+    }
+
+    try {
+      const perpMarkets = this.driftClient.getPerpMarketAccounts();
+      const userPositions = this.driftClient.getUser().perpPositions;
+      
+      const positions = [];
+      
+      for (const pos of userPositions) {
+        if (pos.baseAssetAmount.abs().gt(new BN(0))) {
+          const marketInfo = Object.values(MARKETS).find(m => m.marketIndex === pos.marketIndex.toNumber());
+          positions.push({
+            index: pos.marketIndex.toNumber(),
+            market: marketInfo?.symbol || `Market ${pos.marketIndex.toNumber()}`,
+            side: pos.baseAssetAmount.gt(new BN(0)) ? 'LONG' : 'SHORT',
+            size: Math.abs(pos.baseAssetAmount.toNumber() / 1e6),
+            entryPrice: pos.quoteEntryAmount.toNumber() / pos.baseAssetAmount.abs().toNumber(),
+            pnl: pos.quoteAssetAmount.toNumber() / 1e6,
+            leverage: Math.abs(pos.baseAssetAmount.toNumber() / pos.quoteAssetAmount.abs().toNumber())
+          });
+        }
+      }
+
+      return positions;
+
+    } catch (error) {
+      console.error('Get positions error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get account info (collateral, health, etc)
+   */
+  async getAccountInfo() {
+    if (!this.initialized) {
+      return null;
+    }
+
+    try {
+      const user = this.driftClient.getUser();
+      const collateral = user.getTotalCollateral();
+      const health = user.getHealth(MarketType.PERP);
+      
+      return {
+        collateral: collateral.toNumber() / 1e6,
+        health: health.toNumber() / 1e6,
+        accountAddress: this.driftClient.provider.wallet.publicKey.toString()
+      };
+
+    } catch (error) {
+      console.error('Account info error:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get current price for a market
+   */
+  async getPrice(symbol) {
+    try {
+      const market = this.getMarket(symbol);
+      if (!market) return null;
+
+      const perpMarket = this.driftClient.getPerpMarket(market.marketIndex);
+      const price = perpMarket?.amm?.price.toNumber() / 1e6;
+      
+      return price;
+
+    } catch (error) {
+      console.error('Price error:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get funding rate for a market
+   */
+  async getFundingRate(symbol) {
+    try {
+      const market = this.getMarket(symbol);
+      if (!market) return null;
+
+      const perpMarket = this.driftClient.getPerpMarket(market.marketIndex);
+      const fundingRate = perpMarket?.amm?.FundingRate?.toNumber() / 1e6;
+      
+      return fundingRate;
+
+    } catch (error) {
+      console.error('Funding rate error:', error.message);
+      return null;
+    }
+  }
+}
+
+module.exports = { PerpetualsService, MARKETS };

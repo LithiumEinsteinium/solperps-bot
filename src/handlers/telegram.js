@@ -128,6 +128,12 @@ class TelegramHandler {
 /deposit — Get deposit address
 /onchain — Check on-chain balance
 /withdraw ADDRESS AMOUNT — Withdraw SOL
+
+*📊 Perpetuals*
+/perp SYM SIDE AMT LEV — Open perp
+/perppositions — View positions
+/perpclose INDEX — Close position
+/perpinfo — Account info
 /connect ADDRESS — Phantom
 
 *💼 Management*
@@ -321,6 +327,75 @@ Mode: ${result.mode.toUpperCase()}`;
           }
         } else {
           this.sendMessage(chatId, `Usage: /withdraw ADDRESS AMOUNT\n\nExample: /withdraw 7xKXtg2CW87d97TXJSDpbD5iBk8RV1fYzVWZ2Mn7dDg 1`);
+        }
+      } else if (text.startsWith('/perp ')) {
+        // /perp SOL long 10 5 -> symbol, side, amount, leverage
+        const parts = text.split(' ');
+        if (parts.length >= 5) {
+          const symbol = parts[1].toUpperCase();
+          const side = parts[2].toLowerCase();
+          const amount = parseFloat(parts[3]);
+          const leverage = parseFloat(parts[4]);
+          
+          try {
+            this.sendMessage(chatId, `⏳ Opening ${leverage}x ${side} position on ${symbol} with ${amount} USDC...`);
+            const result = await this.bot.openPerpPosition(chatId, symbol, side, amount, leverage);
+            if (result.success) {
+              this.sendMessage(chatId, `✅ *Perp Position Opened*\n\n${symbol}: ${side.toUpperCase()} ${leverage}x\nAmount: ${amount} USDC\n\nTx: \`${result.txid}\``, { parse_mode: 'Markdown' });
+            } else {
+              this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+            }
+          } catch (e) {
+            this.sendMessage(chatId, `❌ Error: ${e.message}`);
+          }
+        } else {
+          this.sendMessage(chatId, `Usage: /perp SYMBOL SIDE AMOUNT LEVERAGE\n\nExample:\n/perps SOL long 100 5\n/perps BTC short 50 10\n\nMarkets: SOL, BTC, ETH\nMax leverage: 10x`);
+        }
+      } else if (text.startsWith('/perpclose ')) {
+        const parts = text.split(' ');
+        const positionIndex = parseInt(parts[1]);
+        
+        if (!isNaN(positionIndex)) {
+          try {
+            const result = await this.bot.closePerpPosition(chatId, positionIndex);
+            if (result.success) {
+              this.sendMessage(chatId, `✅ *Position Closed*\n\nTx: \`${result.txid}\``, { parse_mode: 'Markdown' });
+            } else {
+              this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+            }
+          } catch (e) {
+            this.sendMessage(chatId, `❌ Error: ${e.message}`);
+          }
+        } else {
+          this.sendMessage(chatId, `Usage: /perpclose POSITION_INDEX\n\nUse /perppositions to see open positions.`);
+        }
+      } else if (text.startsWith('/perppositions')) {
+        try {
+          const positions = await this.bot.getPerpPositions(chatId);
+          if (positions.length === 0) {
+            this.sendMessage(chatId, `📊 No open perp positions`);
+          } else {
+            let msg = `📊 *Perp Positions*\n\n`;
+            positions.forEach((p, i) => {
+              msg += `${i}. ${p.market} ${p.side} ${p.leverage}x\n`;
+              msg += `   Size: $${p.size.toFixed(2)} | PnL: $${p.pnl.toFixed(2)}\n\n`;
+            });
+            msg += `Use /perpclose INDEX to close`;
+            this.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+          }
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
+      } else if (text.startsWith('/perpinfo')) {
+        try {
+          const info = await this.bot.getPerpAccountInfo(chatId);
+          if (info) {
+            this.sendMessage(chatId, `⛓️ *Perp Account*\n\nCollateral: $${info.collateral.toFixed(2)}\nHealth: ${info.health.toFixed(2)}%\n\nUse /perp to open positions.`, { parse_mode: 'Markdown' });
+          } else {
+            this.sendMessage(chatId, `❌ Could not get account info`);
+          }
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
         }
       } else if (text.startsWith('/long ')) {
         const parts = text.split(' ');
