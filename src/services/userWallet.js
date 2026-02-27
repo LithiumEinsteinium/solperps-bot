@@ -152,7 +152,12 @@ class UserWalletManager {
         }
       }
       
-      // Validate length - accept 32 or provide better error
+      // Validate length - accept 32 or handle 64 (sometimes keys get double encoded)
+      if (bytes.length === 64) {
+        // Might be [privateKey, publicKey] array - take first 32 bytes
+        bytes = bytes.slice(0, 32);
+      }
+      
       if (bytes.length !== 32) {
         return { success: false, error: `Key length ${bytes.length}, need 32 bytes. Make sure you copied the full key.` };
       }
