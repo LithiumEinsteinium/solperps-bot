@@ -6,6 +6,7 @@ const { PositionManager } = require('./services/positionManager');
 const { SignalEngine } = require('./strategies/signalEngine');
 const { TelegramHandler } = require('./handlers/telegram');
 const { PhantomWalletManager } = require('./services/phantomWallet');
+const { UserWalletManager } = require('./services/userWallet');
 
 const PORT = process.env.PORT || 3000;
 
@@ -54,6 +55,9 @@ class SolPerpsBot {
     
     // User-connected Phantom wallet
     this.phantom = new PhantomWalletManager();
+    
+    // Built-in wallet per user
+    this.userWallets = new UserWalletManager('./data/user_wallets.json');
     
     // Price alerts
     this.priceAlerts = new Map();
@@ -183,14 +187,14 @@ class SolPerpsBot {
 
   async getBalance() {
     try {
-      // Check if user has connected their wallet
+      // Check if user has connected their Phantom wallet
       const phantomStatus = this.phantom.getStatus();
       
       if (phantomStatus.connected && !this.isPaperTrading) {
-        // Fetch real balance from connected wallet
+        // Fetch real balance from connected Phantom wallet
         await this.phantom.fetchBalance();
         const status = this.phantom.getStatus();
-        const solPrice = await this.jupiter.getPrice('SOL').catch(() => 0);
+        const solPrice = await this.jupiter.getPrice('SOL').catch(() => 86);
         return {
           mode: 'live',
           address: status.address,
@@ -199,7 +203,7 @@ class SolPerpsBot {
         };
       }
 
-      // Default to paper balance
+      // In paper trading mode, show paper balance
       const solPrice = await this.jupiter.getPrice('SOL').catch(() => 86);
       return {
         mode: 'paper',
@@ -210,6 +214,16 @@ class SolPerpsBot {
       console.error('Balance error:', error.message);
       return { mode: 'error', sol: 0, usd: 0 };
     }
+  }
+
+  // Get user's bot wallet address
+  getUserWalletAddress(chatId) {
+    return this.userWallets.getAddress(chatId);
+  }
+
+  // Get user's bot wallet private key for export
+  getUserWalletPrivateKey(chatId) {
+    return this.userWallets.getPrivateKey(chatId);
   }
 
   // ==================== POSITIONS ====================

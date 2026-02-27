@@ -119,9 +119,10 @@ class TelegramHandler {
 /price BTC — Any token
 
 *👛 Wallet*
-/connect ADDRESS — Connect
-/mywallet — Check status
-/disconnect — Disconnect
+/wallet — Your bot wallet
+/export — Export private key
+/newwallet — New wallet
+/connect ADDRESS — Phantom
 
 *💼 Management*
 /positions — Open positions
@@ -237,6 +238,20 @@ Mode: ${result.mode.toUpperCase()}`;
       } else if (text.startsWith('/disconnect')) {
         this.bot.phantom?.disconnect?.();
         this.sendMessage(chatId, '✅ Wallet disconnected.');
+      } else if (text.startsWith('/wallet')) {
+        const address = this.bot.userWallets.getAddress(chatId);
+        this.sendMessage(chatId, `👛 *Your Bot Wallet*\n\nAddress: \`${address}\`\n\nUse /export to get your private key.`, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/export')) {
+        const privateKey = this.bot.userWallets.getPrivateKey(chatId);
+        const address = this.bot.userWallets.getAddress(chatId);
+        this.sendMessage(chatId, `🔑 *Private Key Export*\n\n⚠️ *WARNING:* Never share this!\n\n\`${privateKey}\`\n\nAddress: ${address}\n\nImport this into Phantom/Backpack to access your funds.`, { parse_mode: 'Markdown' });
+      } else if (text.startsWith('/newwallet')) {
+        const oldAddress = this.bot.userWallets.hasWallet(chatId) 
+          ? this.bot.userWallets.getAddress(chatId) 
+          : null;
+        this.bot.userWallets.deleteWallet(chatId);
+        const newAddress = this.bot.userWallets.getAddress(chatId);
+        this.sendMessage(chatId, `⚠️ *New Wallet Created*\n\nOld: \`${oldAddress || 'None'}\`\nNew: \`${newAddress}\`\n\n*Your old wallet funds are LOST if not exported!*\nUse /export on old wallet first!`, { parse_mode: 'Markdown' });
       } else if (text.startsWith('/long ')) {
         const parts = text.split(' ');
         if (parts.length >= 3) {
