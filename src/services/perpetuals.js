@@ -151,40 +151,19 @@ class PerpetualsService {
             await this.driftClient.initialize({});
           }
           
-          // Try to subscribe - this will fail if no user exists
+          // Skip user check - just try to subscribe
           try {
             if (typeof this.driftClient.subscribe === 'function') {
               await this.driftClient.subscribe();
             } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
               await this.driftClient.subscribeToAccounts();
             }
+            console.log('✅ Subscribed to Drift');
           } catch (subError) {
-            console.log('Subscribe error (may indicate no user):', subError.message);
-            // If subscribe fails, try to get user positions directly
-            // to verify if user exists
+            console.log('Subscribe warning:', subError.message);
           }
           
-          // Try to get user - if this fails, no user exists
-          try {
-            console.log('📋 Attempting to get Drift user...');
-            const user = this.driftClient.getUser();
-            console.log('✅ User found:', user);
-          } catch (userError) {
-            console.log('User error details:', JSON.stringify(userError));
-            // User doesn't exist
-            return { 
-              success: false, 
-              error: `⚠️ No Drift account found.
-
-Wallet: ${this.walletAddress ? this.walletAddress.slice(0,8) + '...' + this.walletAddress.slice(-8) : 'unknown'}
-
-Your wallet needs a Drift account. Please:
-1. Go to https://app.drift.trade
-2. Connect this wallet
-3. Deposit USDC
-4. Come back and try again`
-            };
-          }
+          this.initialized = true;
           
           this.initialized = true;
           console.log('✅ Drift perpetuals initialized');
