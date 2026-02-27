@@ -1,19 +1,27 @@
 /**
  * Drift Perpetuals Trading Service
  * Handles perpetual futures trading via Drift Protocol
+ * 
+ * Note: Requires Node.js with ESM support or --experimental-specifier-resolution=node
  */
+
+let DriftClient, Wallet, BN, MarketType, PositionDirection, DEFAULT_TIMEOUT, OracleSource;
+
+try {
+  const drift = require('@drift-labs/sdk');
+  DriftClient = drift.DriftClient;
+  Wallet = drift.Wallet;
+  BN = drift.BN;
+  MarketType = drift.MarketType;
+  PositionDirection = drift.PositionDirection;
+  OracleSource = drift.OracleSource;
+  console.log('✅ Drift SDK loaded');
+} catch (error) {
+  console.log('⚠️ Drift SDK load error:', error.message);
+}
 
 const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
-const { 
-  DriftClient, 
-  Wallet, 
-  BN, 
-  MarketType,
-  PositionDirection,
-  DEFAULT_TIMEOUT,
-  OracleSource
-} = require('@drift-labs/sdk');
 
 const MARKETS = {
   'SOL': { marketIndex: 0, symbol: 'SOL-PERP' },
@@ -41,6 +49,10 @@ class PerpetualsService {
    * Initialize Drift client with user's wallet
    */
   async initialize(privateKeyBase58) {
+    if (!DriftClient) {
+      return { success: false, error: 'Drift SDK not loaded. Try: npm install @drift-labs/sdk' };
+    }
+    
     try {
       const bytes = bs58.decode(privateKeyBase58);
       const keypair = Keypair.fromSecretKey(bytes);
