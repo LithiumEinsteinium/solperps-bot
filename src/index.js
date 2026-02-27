@@ -322,6 +322,7 @@ class SolPerpsBot {
     // Check user testnet mode
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
     const privateKey = this.getUserWalletPrivateKey(chatId);
+    const walletAddress = this.userWallets.getAddress(chatId);
     if (!privateKey) return { success: false, error: 'No wallet' };
     
     // Reinitialize if not initialized, or if wallet/network changed
@@ -408,6 +409,7 @@ class SolPerpsBot {
     
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
     const privateKey = this.getUserWalletPrivateKey(chatId);
+    const walletAddress = this.userWallets.getAddress(chatId);
     if (!privateKey) return [];
     
     // Reinitialize if needed
@@ -428,8 +430,9 @@ class SolPerpsBot {
     
     if (!this.perps.initialized) {
       const privateKey = this.getUserWalletPrivateKey(chatId);
+      const walletAddress = this.userWallets.getAddress(chatId);
       if (!privateKey) return null;
-      await this.perps.initialize(privateKey);
+      await this.perps.initialize(privateKey, { walletAddress });
     }
     
     return await this.perps.getAccountInfo();
