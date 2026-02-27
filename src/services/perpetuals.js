@@ -77,20 +77,23 @@ class PerpetualsService {
           
           this.driftClient = new DriftClient(sdkConfig);
           
-          // Initialize and subscribe
+          // Initialize and subscribe - try different approaches
           if (typeof this.driftClient.initialize === 'function') {
             console.log('📋 Initializing Drift...');
             await this.driftClient.initialize({});
           }
           
-          // MUST subscribe before using
+          // MUST subscribe before using - try all methods
           if (typeof this.driftClient.subscribe === 'function') {
             console.log('📡 Subscribing to Drift...');
             await this.driftClient.subscribe();
             console.log('✅ Subscribed');
-          } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
-            console.log('📡 Subscribing to accounts...');
-            await this.driftClient.subscribeToAccounts();
+          } 
+          
+          // Also try fetchUser if it exists
+          if (typeof this.driftClient.fetchUser === 'function') {
+            console.log('📡 Fetching user...');
+            await this.driftClient.fetchUser();
           }
           
           this.initialized = true;
@@ -121,13 +124,16 @@ class PerpetualsService {
         return { success: false, error: `Unknown market: ${symbol}` };
       }
       
+      console.log('📊 Opening position:', { symbol, side, amount, leverage, marketIndex: marketInfo.marketIndex });
+      
       const direction = side.toLowerCase() === 'long' 
         ? PositionDirection.LONG 
         : PositionDirection.SHORT;
       
-      // Calculate position size
-      const size = new BN(amount * leverage * 1000); // Convert to smallest units
+      // Calculate position size - BN version
+      const size = new BN(Math.floor(amount * leverage * 1000));
       
+      console.log('📤 Calling openPosition on SDK...');
       const tx = await this.driftClient.openPosition({
         marketIndex: marketInfo.marketIndex,
         direction,
@@ -135,9 +141,11 @@ class PerpetualsService {
         reduceOnly: false,
       });
       
+      console.log('✅ Position opened:', tx);
       return { success: true, txid: tx };
     } catch (error) {
-      console.error('Open position error:', error.message);
+      console.error('Open position error:', error);
+      console.error('Stack:', error.stack);
       return { success: false, error: error.message };
     }
   }
