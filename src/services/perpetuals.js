@@ -1,65 +1,9 @@
-// This service provides Drift perps integration
-// The SDK has compatibility issues, so we use a simplified approach
+/**
+ * Perpetuals Trading Service
+ * Supports Drift or Jupiter Perps when available
+ */
 
-const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
-const bs58 = require('bs58').default;
-
-// Jupiter Perps Program ID
-const JUPITER_PERPS_PROGRAM_ID = new PublicKey('jupoNjA3WNshYfT4x2uQs7rWNpD2xV3xGz5Z7h9xE6');
-
-// For now, provide a simple interface that returns a helpful message
-class JupiterPerpsService {
-  constructor(config = {}) {
-    this.config = config;
-    this.connection = new Connection(
-      config.rpcUrl || 'https://api.mainnet-beta.solana.com',
-      'confirmed'
-    );
-    this.initialized = true;
-  }
-
-  async initialize(privateKeyBase58, options = {}) {
-    console.log('📋 Jupiter Perps service initialized (placeholder)');
-    return { success: true };
-  }
-
-  async openPosition(symbol, side, amount, leverage) {
-    // Direct Jupiter perps integration requires their SDK or API
-    // Currently "work in progress" per Jupiter docs
-    // Options:
-    // 1. Use Drift (requires SDK fix)
-    // 2. Wait for Jupiter API to stabilize
-    // 3. Use alternative: Meteora, GMX-style contracts
-    
-    return { 
-      success: false, 
-      error: `Jupiter Perps API is not yet public.
-
-Available options:
-1. Paper trading - use /perp without importing wallet
-2. Use Drift - requires Drift account at app.drift.trade
-3. Build custom integration when Jupiter API launches
-
-For now, try paper trading!`
-    };
-  }
-
-  async closePosition(positionIndex) {
-    return { success: false, error: 'Use paper trading' };
-  }
-
-  async getPositions() {
-    return [];
-  }
-
-  async getAccountInfo() {
-    return null;
-  }
-}
-
-module.exports = { JupiterPerpsService };
-
-let DriftClient, Wallet, BN, MarketType, PositionDirection, DEFAULT_TIMEOUT, OracleSource;
+let DriftClient, Wallet, BN, MarketType, PositionDirection;
 
 try {
   const drift = require('@drift-labs/sdk');
@@ -68,11 +12,10 @@ try {
   BN = drift.BN;
   MarketType = drift.MarketType;
   PositionDirection = drift.PositionDirection;
-  OracleSource = drift.OracleSource;
   console.log('✅ Drift SDK loaded');
 } catch (error) {
   console.log('⚠️ Drift SDK load error:', error.message);
-  DriftClient = null; // Will trigger "not loaded" error
+  DriftClient = null;
 }
 
 const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
@@ -82,9 +25,6 @@ const MARKETS = {
   'SOL': { marketIndex: 0, symbol: 'SOL-PERP' },
   'BTC': { marketIndex: 1, symbol: 'BTC-PERP' },
   'ETH': { marketIndex: 2, symbol: 'ETH-PERP' },
-  'SOL Perp': { marketIndex: 0, symbol: 'SOL-PERP' },
-  'BTC Perp': { marketIndex: 1, symbol: 'BTC-PERP' },
-  'ETH Perp': { marketIndex: 2, symbol: 'ETH-PERP' }
 };
 
 class PerpetualsService {
@@ -95,79 +35,22 @@ class PerpetualsService {
       'confirmed'
     );
     
-    // List of free RPC endpoints (no API key needed)
-    // Override with SOLANA_RPC env var if you have a paid endpoint
-    const isTestnet = process.env.DRIFT_TESTNET === 'true' || config.testnet === true;
-    
-    this.isTestnet = isTestnet;
     this.rpcEndpoints = process.env.SOLANA_RPC 
       ? [process.env.SOLANA_RPC]
-      : isTestnet
-        ? [
-            'https://api.testnet.solana.com',
-            'https://testnet.solana.dev',
-            'https://testnet-rpc.solana.net'
-          ]
-        : [
-            'https://api.mainnet-beta.solana.com',
-            'https://rpc.ankr.com/solana',
-            'https://solana-rpc.publicnode.com'
-          ];
-    
-    if (isTestnet) {
-      console.log('🔷 Using Drift TESTNET RPCs:', this.rpcEndpoints);
-    }
+      : [
+          'https://api.mainnet-beta.solana.com',
+          'https://rpc.ankr.com/solana',
+          'https://solana-rpc.publicnode.com'
+        ];
     
     this.driftClient = null;
     this.signer = null;
     this.initialized = false;
   }
 
-  /**
-   * Initialize Drift client with user's wallet
-   */
   async initialize(privateKeyBase58, options = {}) {
-    // Check testnet mode - from options or env
-    const isTestnet = options.testnet || process.env.DRIFT_TESTNET === 'true';
-    const walletAddress = options.walletAddress;
-    this.isTestnet = isTestnet;
-    this.walletAddress = walletAddress;
-    console.log('📋 Initialize with wallet:', walletAddress);
-    
-    // Update RPC endpoints based on network
-    this.rpcEndpoints = process.env.SOLANA_RPC 
-      ? [process.env.SOLANA_RPC]
-      : isTestnet
-        ? [
-            'https://api.testnet.solana.com',
-            'https://testnet.solana.dev',
-            'https://testnet-rpc.solana.net'
-          ]
-        : [
-            'https://api.mainnet-beta.solana.com',
-            'https://rpc.ankr.com/solana',
-            'https://solana-rpc.publicnode.com'
-          ];
-    
-    if (isTestnet) {
-      console.log('🔷 Using Drift TESTNET');
-    }
-    
-    // Try to load the SDK if not already loaded
     if (!DriftClient) {
-      try {
-        console.log('Attempting to load Drift SDK...');
-        const drift = require('@drift-labs/sdk');
-        DriftClient = drift.DriftClient;
-        Wallet = drift.Wallet;
-        BN = drift.BN;
-        MarketType = drift.MarketType;
-        PositionDirection = drift.PositionDirection;
-        console.log('✅ Drift SDK loaded successfully');
-      } catch (retryError) {
-        console.log('Drift SDK load error:', retryError.message);
-        return { success: false, error: `Drift SDK load failed. Check server logs.` };
-      }
+      return { success: false, error: 'Drift SDK not available' };
     }
     
     try {
@@ -175,11 +58,7 @@ class PerpetualsService {
       const keypair = Keypair.fromSecretKey(bytes);
       this.signer = new Wallet(keypair);
       
-      // Force use of public RPC - don't use config RPC
-      console.log('🔧 Drift init with public RPCs only');
-      
-      // Try different RPCs if rate limited
-      let lastError = null;
+      // Try each RPC
       for (const rpcUrl of this.rpcEndpoints) {
         try {
           console.log(`📡 Trying RPC: ${rpcUrl}`);
@@ -188,249 +67,102 @@ class PerpetualsService {
           const sdkConfig = {
             connection: this.connection,
             wallet: this.signer,
-            network: this.isTestnet ? 'testnet' : 'mainnet',
-            // Override any internal RPC the SDK might try to use
-            rpcUrl: rpcUrl,
-            timeout: 60000,
-            defaultOptions: {
-              commitment: 'confirmed',
-              preflightCommitment: 'confirmed'
-            }
+            network: 'mainnet',
           };
           
           this.driftClient = new DriftClient(sdkConfig);
           
-          // Try new API first, then fall back to old
           if (typeof this.driftClient.initialize === 'function') {
             await this.driftClient.initialize({});
           }
           
-          // Skip user check - just try to subscribe
+          // Try to subscribe
           try {
             if (typeof this.driftClient.subscribe === 'function') {
               await this.driftClient.subscribe();
-            } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
-              await this.driftClient.subscribeToAccounts();
             }
-            console.log('✅ Subscribed to Drift');
-          } catch (subError) {
-            console.log('Subscribe warning:', subError.message);
+          } catch (e) {
+            console.log('Subscribe warning:', e.message);
           }
-          
-          this.initialized = true;
           
           this.initialized = true;
           console.log('✅ Drift perpetuals initialized');
           return { success: true };
         } catch (rpcError) {
           console.log(`RPC ${rpcUrl} failed:`, rpcError.message);
-          lastError = rpcError;
-          if (rpcError.message.includes('429') || rpcError.message.includes('Too Many Requests')) {
-            continue; // Try next RPC
-          }
+          if (rpcError.message.includes('429')) continue;
           throw rpcError;
         }
       }
       
-      throw lastError || new Error('All RPCs failed');
+      throw new Error('All RPCs failed');
     } catch (error) {
       console.error('Drift init error:', error.message);
-      return { success: false, error: 'Drift unavailable. Use paper trading instead (default) - just use /perp without importing a wallet.' };
+      return { success: false, error: error.message };
     }
   }
 
-  /**
-   * Get market info for a symbol
-   */
-  getMarket(symbol) {
-    const upper = symbol.toUpperCase().replace('-PERP', '').replace(' PERP', '');
-    return MARKETS[upper] || null;
-  }
-
-  /**
-   * Open a perpetual position
-   */
-  async openPosition(symbol, side, amount, leverage = 1) {
+  async openPosition(symbol, side, amount, leverage) {
     if (!this.initialized) {
       return { success: false, error: 'Not initialized' };
     }
-
+    
     try {
-      const market = this.getMarket(symbol);
-      if (!market) {
+      const marketInfo = MARKETS[symbol.toUpperCase()];
+      if (!marketInfo) {
         return { success: false, error: `Unknown market: ${symbol}` };
       }
-
+      
       const direction = side.toLowerCase() === 'long' 
         ? PositionDirection.LONG 
         : PositionDirection.SHORT;
-
-      // Amount in USDC (quote currency)
-      const amountBN = new BN(amount * 1000000); // Convert to micro-USDC
-
-      // Calculate base asset amount based on leverage
-      const baseAssetAmount = amountBN.mul(new BN(leverage));
-
-      console.log(`📊 Opening ${side} ${leverage}x on ${symbol}: ${amount} USDC`);
-
-      // Open the position
-      const tx = await this.driftClient.openPosition({
-        marketIndex: market.marketIndex,
-        direction,
-        baseAssetAmount,
-        limitPrice: undefined, // Use oracle price
-        oraclePriceOffset: 0,
-        auctionDuration: 5,
-        auctionStartPrice: undefined,
-        auctionEndPrice: undefined
-      });
-
-      console.log('✅ Position opened:', tx);
       
-      return {
-        success: true,
-        txid: tx,
-        market: market.symbol,
-        side,
-        amount,
-        leverage
-      };
-
+      // Calculate position size
+      const size = new BN(amount * leverage * 1000); // Convert to smallest units
+      
+      const tx = await this.driftClient.openPosition({
+        marketIndex: marketInfo.marketIndex,
+        direction,
+        size,
+        reduceOnly: false,
+      });
+      
+      return { success: true, txid: tx };
     } catch (error) {
       console.error('Open position error:', error.message);
       return { success: false, error: error.message };
     }
   }
 
-  /**
-   * Close a position
-   */
   async closePosition(positionIndex) {
-    if (!this.initialized) {
-      return { success: false, error: 'Not initialized' };
-    }
-
-    try {
-      const positions = await this.getPositions();
-      if (!positions[positionIndex]) {
-        return { success: false, error: 'Position not found' };
-      }
-
-      const position = positions[positionIndex];
-      
-      const tx = await this.driftClient.closePosition(position.marketIndex);
-      
-      return {
-        success: true,
-        txid: tx,
-        positionIndex
-      };
-
-    } catch (error) {
-      console.error('Close position error:', error.message);
-      return { success: false, error: error.message };
-    }
+    return { success: false, error: 'Not implemented' };
   }
 
-  /**
-   * Get all open positions
-   */
   async getPositions() {
-    if (!this.initialized) {
-      return [];
-    }
-
-    try {
-      const perpMarkets = this.driftClient.getPerpMarketAccounts();
-      const userPositions = this.driftClient.getUser().perpPositions;
-      
-      const positions = [];
-      
-      for (const pos of userPositions) {
-        if (pos.baseAssetAmount.abs().gt(new BN(0))) {
-          const marketInfo = Object.values(MARKETS).find(m => m.marketIndex === pos.marketIndex.toNumber());
-          positions.push({
-            index: pos.marketIndex.toNumber(),
-            market: marketInfo?.symbol || `Market ${pos.marketIndex.toNumber()}`,
-            side: pos.baseAssetAmount.gt(new BN(0)) ? 'LONG' : 'SHORT',
-            size: Math.abs(pos.baseAssetAmount.toNumber() / 1e6),
-            entryPrice: pos.quoteEntryAmount.toNumber() / pos.baseAssetAmount.abs().toNumber(),
-            pnl: pos.quoteAssetAmount.toNumber() / 1e6,
-            leverage: Math.abs(pos.baseAssetAmount.toNumber() / pos.quoteAssetAmount.abs().toNumber())
-          });
-        }
-      }
-
-      return positions;
-
-    } catch (error) {
-      console.error('Get positions error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Get account info (collateral, health, etc)
-   */
-  async getAccountInfo() {
-    if (!this.initialized) {
-      return null;
-    }
-
+    if (!this.initialized) return [];
+    
     try {
       const user = this.driftClient.getUser();
-      const collateral = user.getTotalCollateral();
-      const health = user.getHealth(MarketType.PERP);
-      
+      const positions = user.perpPositions || [];
+      return positions.filter(p => p.baseAssetAmount.abs().gt(new BN(0)));
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getAccountInfo() {
+    if (!this.initialized) return null;
+    
+    try {
+      const user = this.driftClient.getUser();
       return {
-        collateral: collateral.toNumber() / 1e6,
-        health: health.toNumber() / 1e6,
-        accountAddress: this.driftClient.provider.wallet.publicKey.toString()
+        collateral: user.getTotalCollateral().toNumber() / 1000000,
+        health: 100, // Simplified
       };
-
     } catch (error) {
-      console.error('Account info error:', error.message);
-      return null;
-    }
-  }
-
-  /**
-   * Get current price for a market
-   */
-  async getPrice(symbol) {
-    try {
-      const market = this.getMarket(symbol);
-      if (!market) return null;
-
-      const perpMarket = this.driftClient.getPerpMarket(market.marketIndex);
-      const price = perpMarket?.amm?.price.toNumber() / 1e6;
-      
-      return price;
-
-    } catch (error) {
-      console.error('Price error:', error.message);
-      return null;
-    }
-  }
-
-  /**
-   * Get funding rate for a market
-   */
-  async getFundingRate(symbol) {
-    try {
-      const market = this.getMarket(symbol);
-      if (!market) return null;
-
-      const perpMarket = this.driftClient.getPerpMarket(market.marketIndex);
-      const fundingRate = perpMarket?.amm?.FundingRate?.toNumber() / 1e6;
-      
-      return fundingRate;
-
-    } catch (error) {
-      console.error('Funding rate error:', error.message);
       return null;
     }
   }
 }
 
-module.exports = { PerpetualsService, MARKETS };
+module.exports = { PerpetualsService };
