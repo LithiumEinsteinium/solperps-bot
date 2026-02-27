@@ -147,6 +147,26 @@ class PerpetualsService {
           if (typeof this.driftClient.initialize === 'function') {
             await this.driftClient.initialize({});
           }
+          
+          // Check if user exists, if not create one
+          try {
+            const userExists = await this.driftClient.getUser();
+            if (!userExists) {
+              console.log('👤 Creating Drift user account...');
+              // Deposit some testnet USDC to create account
+              // For testnet, we need to create user first
+              await this.driftClient.initializeUser();
+            }
+          } catch (userError) {
+            console.log('User check error:', userError.message);
+            // Try to create user
+            try {
+              await this.driftClient.initializeUser();
+            } catch (createError) {
+              console.log('Create user error:', createError.message);
+            }
+          }
+          
           if (typeof this.driftClient.subscribe === 'function') {
             await this.driftClient.subscribe();
           } else if (typeof this.driftClient.subscribeToAccounts === 'function') {
