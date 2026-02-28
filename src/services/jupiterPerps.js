@@ -43,6 +43,20 @@ class JupiterPerpsService {
       const wallet = this.keypair.publicKey;
       const usdcATA = this.getUSDC_ATA(wallet);
       
+      // Check if USDC ATA exists
+      const ataInfo = await this.connection.getParsedAccountInfo(usdcATA);
+      if (!ataInfo.value) {
+        return { 
+          error: `No USDC token account found.
+
+Your wallet needs a USDC token account.
+1. Send some USDC to: \`${this.walletAddress}\`
+2. The ATA will be created automatically
+3. Then try again`,
+          wallet: this.walletAddress
+        };
+      }
+      
       const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
       const collateralDelta = new BN(Math.floor(amount * 1000000));
       const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
