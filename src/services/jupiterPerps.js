@@ -96,35 +96,34 @@ class JupiterPerpsService {
 
       console.log('Building Jupiter tx:', market, side, sizeUSD.toString());
       
-      try {
-        const { instructions, blockhash } = await buildOpenPositionTransaction(this.connection, wallet, {
-          market,
-          side,
-          collateralMint,
-          collateralDelta,
-          sizeUsdDelta: sizeUSD,
-          priceSlippage,
-          jupiterMinimumOut: null,
-        });
-        console.log('DEBUG: got instructions, blockhash:', blockhash?.slice(0,20));
+      const { instructions, blockhash } = await buildOpenPositionTransaction(this.connection, wallet, {
+        market,
+        side,
+        collateralMint,
+        collateralDelta,
+        sizeUsdDelta: sizeUSD,
+        priceSlippage,
+        jupiterMinimumOut: null,
+      });
+      console.log('DEBUG: got instructions, blockhash:', blockhash?.slice(0,20));
 
-        // Create versioned transaction
-        const message = new TransactionMessage({
-          recentBlockhash: blockhash,
-          feePayer: wallet,
-          instructions,
-        }).compileToV0Message();
-        
-        const tx = new VersionedTransaction(message);
-        tx.sign([this.keypair]);
-        const sig = await this.connection.sendTransaction(tx);
+      // Create versioned transaction
+      const message = new TransactionMessage({
+        recentBlockhash: blockhash,
+        feePayer: wallet,
+        instructions,
+      }).compileToV0Message();
+      
+      const tx = new VersionedTransaction(message);
+      tx.sign([this.keypair]);
+      const sig = await this.connection.sendTransaction(tx);
       
       return { 
         success: true, 
         txid: sig,
         message: `🪐 *Position Opened!*\n\n${market}: ${side.toUpperCase()} ${leverage}x\nAmount: $${amount}\n\nTx: \`${sig}\``
       };
-
+      
     } catch (e) {
       console.error('Error:', e.message);
       return { error: e.message };
