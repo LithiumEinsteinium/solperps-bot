@@ -27,10 +27,42 @@
 | `/deposit` | ✅ Working | Get deposit address |
 | `/onchain` | ✅ Working | Shows SOL + USDC balance |
 | `/withdraw` | ✅ Working | Withdraw SOL to external address |
-| `/perp` | ⚠️ In Progress | Drift SDK loading issues |
-| `/perppositions` | ⚠️ In Progress | Waiting for perp to work |
-| `/perpclose` | ⚠️ In Progress | Waiting for perp to work |
-| `/perpinfo` | ⚠️ In Progress | Waiting for perp to work |
+| `/perp` | ✅ Working | Paper trading |
+| `/perppositions` | ✅ Working | Paper positions |
+
+### 🔄 In Progress - Jupiter Perps
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `/perp` (real) | 🔄 In Progress | Encoder complete, needs testing |
+| Jupiter API | 🔄 In Progress | Using keeper model with verified addresses |
+
+---
+
+## Jupiter Perps Integration
+
+### Status: Close to Working! 🎯
+
+We've built a complete Jupiter Perps encoder with:
+
+1. **Verified Addresses** (from official Jupiter docs):
+   - Pool: `5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq`
+   - Custodies: SOL, ETH, BTC, USDC, USDT
+   - Oracles: Edge/Chaos Labs (primary)
+
+2. **Keeper Model**:
+   - Creates PositionRequest first
+   - Keeper fills the position
+   - Uses `instantIncreasePosition` instruction
+
+3. **Instruction Encoding**:
+   - 8-byte discriminators (SHA256 hashes)
+   - 18 accounts in correct order
+   - Borsh encoding for u64, Options, enums
+
+### Addresses Verified From Official Sources
+- Dev docs: https://dev.jup.ag/docs/perps
+- Support: https://support.jup.ag
 
 ---
 
@@ -54,9 +86,8 @@
 - Can withdraw SOL to any address
 
 ### 4. Perpetuals (Drift)
-- **Status:** SDK loading issues with Node.js version
-- Using `@drift-labs/sdk` v2.155.0
-- Requires Node 20.x for compatibility
+- **Status:** SDK had compatibility issues
+- Users can still use their wallet on Drift UI
 
 ---
 
@@ -83,11 +114,10 @@
 /withdraw ADDR AMT — Withdraw SOL
 
 📊 Perpetuals (Beta)
-/perp SOL long 10 5 — Open 5x long
-/perp BTC short 10 10 — Open 10x short
+/perp SOL long 10 5 — Open 5x long (paper)
 /perppositions — View positions
 /perpclose INDEX — Close position
-/perpinfo — Account info
+/perpsinfo — Account info
 
 ℹ️ Info
 /status — Bot status
@@ -108,7 +138,8 @@
                               ▼               ▼               ▼
                        ┌──────────┐   ┌──────────┐    ┌──────────┐
                        │  Binance │   │ Jupiter  │    │  Drift   │
-                       │  Price   │   │  API     │    │  Perps   │
+                       │  Price   │   │  Perps   │    │  Perps   │
+                       │  API     │   │ (Coming) │    │ (SDK)    │
                        └──────────┘   └──────────┘    └──────────┘
 ```
 
@@ -141,8 +172,8 @@ PAPER_TRADING=true
 | `src/services/jupiter.js` | Price fetching, position management |
 | `src/services/userWallet.js` | Wallet per user management |
 | `src/services/onChainTrader.js` | On-chain trades (deposit/withdraw) |
-| `src/services/perpetuals.js` | Drift perp trading |
-| `src/strategies/signalEngine.js` | Trading signals |
+| `src/services/jupiterPerps.js` | Jupiter perp trading (v10) |
+| `src/services/jupiterPerpsEncoder.js` | Instruction encoder |
 
 ---
 
@@ -155,12 +186,13 @@ PAPER_TRADING=true
 5. **Error handling** - Telegram bots crash silently without try/catch
 6. **bs58 v6** - Use `.default` when requiring
 7. **Node versions** - Drift SDK needs Node 20, not 25
+8. **Jupiter Perps** - Uses keeper model, needs verified addresses from official docs
 
 ---
 
 ## Next Steps
 
-1. ✅ Fix Drift SDK initialization
+1. ✅ Test Jupiter Perps with verified addresses
 2. Add perp position monitoring
 3. Add TP/SL for perp positions
 4. Add auto-trading signals
