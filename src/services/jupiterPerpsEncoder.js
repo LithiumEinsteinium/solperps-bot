@@ -207,6 +207,7 @@ async function buildOpenPositionTransaction(connection, owner, {
     })
   );
   
+  console.log('DEBUG: All instructions built. Count:', instructions.length);
   return { instructions, blockhash };
 }
 
