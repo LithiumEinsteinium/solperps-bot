@@ -110,11 +110,7 @@ async function buildOpenPositionTransaction(connection, owner, {
   
   // Step 1: SetTokenLedger (tell Jupiter where to credit tokens)
   console.log('DEBUG: Building SetTokenLedger...');
-  const setTokenLedgerData = Buffer.concat([
-    DISCRIMINATORS.setTokenLedger,
-    userTokenAccount.toBuffer(),
-    encodeU64(0), // slot
-  ]);
+  const setTokenLedgerData = DISCRIMINATORS.setTokenLedger;
   instructions.push(
     new TransactionInstruction({
       programId: PERP_PROGRAM_ID,
