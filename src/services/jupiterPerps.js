@@ -2,7 +2,7 @@
  * Jupiter Perpetuals Service - Using verified encoder
  */
 
-const { Connection, PublicKey, Keypair, VersionedTransaction } = require('@solana/web3.js');
+const { Connection, PublicKey, Keypair, VersionedTransaction, TransactionMessage } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
 const BN = require('bn.js');
 
@@ -96,7 +96,7 @@ class JupiterPerpsService {
 
       console.log('Building Jupiter tx:', market, side, sizeUSD.toString());
       
-      const tx = await buildOpenPositionTransaction(this.connection, wallet, {
+      const { instructions, blockhash } = await buildOpenPositionTransaction(this.connection, wallet, {
         market,
         side,
         collateralMint,
@@ -106,6 +106,14 @@ class JupiterPerpsService {
         jupiterMinimumOut: null,
       });
 
+      // Create versioned transaction
+      const message = new TransactionMessage({
+        recentBlockhash: blockhash,
+        feePayer: wallet,
+        instructions,
+      }).compileToV0Message();
+      
+      const tx = new VersionedTransaction(message);
       tx.sign([this.keypair]);
       const sig = await this.connection.sendTransaction(tx);
       
