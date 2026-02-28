@@ -1,4 +1,5 @@
 const { Connection, PublicKey, TransactionInstruction, SystemProgram } = require('@solana/web3.js');
+const { ComputeBudgetProgram } = require('@solana/web3.js');
 const BN = require('bn.js');
 
 const PERP_PROGRAM_ID = new PublicKey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
@@ -69,18 +70,10 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const instructions = [];
   
   // Step 1: SetComputeUnitLimit
-  instructions.push({
-    keys: [],
-    programId: new PublicKey('ComputeBudget111111111111111111111111111111'),
-    data: Buffer.from([2, 172, 132, 4, 0]), // setComputeUnitLimit
-  });
+  instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }));
   
   // Step 2: SetComputeUnitPrice
-  instructions.push({
-    keys: [],
-    programId: new PublicKey('ComputeBudget111111111111111111111111111111'),
-    data: Buffer.from([3, 64, 80, 0, 0, 0, 0, 0]), // setComputeUnitPrice  
-  });
+  instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 20000 }));
   
   // Step 3: CreateIdempotent - create user's SOL ATA
   // (This is handled by the system, but we include it conceptually)
