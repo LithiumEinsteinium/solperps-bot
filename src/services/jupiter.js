@@ -1,6 +1,5 @@
 const axios = require('axios');
-const { Connection, PublicKey, Transaction, SystemProgram, TokenProgram } = require('@solana/web3.js');
-const { Token, TOKEN_PROGRAM_ID } = require('@solana/spl-token');
+const { Connection, PublicKey, Transaction, SystemProgram } = require('@solana/web3.js');
 
 class JupiterService {
   constructor(bot, config = {}) {

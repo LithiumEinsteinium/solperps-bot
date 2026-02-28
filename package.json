@@ -14,6 +14,7 @@
     "@jup-ag/api": "^6.0.48",
     "@solana/web3.js": "^1.90.0",
     "axios": "^1.6.5",
+    "bn.js": "^5.2.3",
     "bs58": "^6.0.0",
     "dotenv": "^16.3.1",
     "node-telegram-bot-api": "^0.64.0"
