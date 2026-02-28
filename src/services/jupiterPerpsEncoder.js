@@ -161,7 +161,8 @@ function createIncreasePositionMarketRequest({
   const counter = randomCounter();
   const { pda: positionRequestPda } = derivePositionRequestPda(positionPda, 'increase', counter);
 
-  const positionRequestAta = getAssociatedTokenAddressSync(collateralMint, positionRequestPda);
+  // The funding account should be USER's token account, not a PDA
+  const userTokenAccount = getAssociatedTokenAddressSync(collateralMint, owner);
 
   // Data encoding
   const data = Buffer.concat([
@@ -179,11 +180,11 @@ function createIncreasePositionMarketRequest({
 
   const keys = [
     { pubkey: owner, isSigner: true, isWritable: true },
+    { pubkey: userTokenAccount, isSigner: false, isWritable: true }, // fundingAccount - USER's ATA
     { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false },
     { pubkey: JLP_POOL, isSigner: false, isWritable: true },
     { pubkey: positionPda, isSigner: false, isWritable: true },
     { pubkey: positionRequestPda, isSigner: false, isWritable: true },
-    { pubkey: positionRequestAta, isSigner: false, isWritable: true },
     { pubkey: custodyPk, isSigner: false, isWritable: true },
     { pubkey: CUSTODY_TOKEN_ACCOUNTS[market], isSigner: false, isWritable: true },
     { pubkey: ORACLE_ACCOUNTS[market], isSigner: false, isWritable: false },
