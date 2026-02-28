@@ -34,60 +34,41 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| `/perp` (real) | 🔄 In Progress | Encoder complete, needs testing |
-| Jupiter API | 🔄 In Progress | Using keeper model with verified addresses |
+| `/perp` (real) | 🔄 Close! | Encoder complete, testing |
+| Jupiter API | 🔄 Testing | Using keeper model |
 
 ---
 
-## Jupiter Perps Integration
+## Jupiter Perps Integration - Latest Updates
 
-### Status: Close to Working! 🎯
+### Recent Fixes (Feb 2026)
 
-We've built a complete Jupiter Perps encoder with:
+1. **USDC Address Fixed**
+   - Correct address: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
+   - Previously used wrong address causing $0 balance
+   - Fixed in: `onChainTrader.js` and `jupiterPerpsEncoder.js`
 
-1. **Verified Addresses** (from official Jupiter docs):
-   - Pool: `5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq`
-   - Custodies: SOL, ETH, BTC, USDC, USDT
-   - Oracles: Edge/Chaos Labs (primary)
+2. **Instruction Account Order Fixed**
+   - Error: `AccountOwnedByWrongProgram`
+   - Fix: `fundingAccount` now correctly uses user's token account
 
-2. **Keeper Model**:
-   - Creates PositionRequest first
-   - Keeper fills the position
-   - Uses `instantIncreasePosition` instruction
+3. **Multiple RPCs Added**
+   - Added fallback RPCs: Ankr, PublicNode
+   - Prevents rate limiting issues
 
-3. **Instruction Encoding**:
-   - 8-byte discriminators (SHA256 hashes)
-   - 18 accounts in correct order
-   - Borsh encoding for u64, Options, enums
+### Verified Addresses (From Official Jupiter Docs)
+- Pool: `5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq`
+- Custodies: SOL, ETH, BTC, USDC, USDT
+- Oracles: Edge/Chaos Labs (primary)
 
-### Addresses Verified From Official Sources
+**Sources:**
 - Dev docs: https://dev.jup.ag/docs/perps
 - Support: https://support.jup.ag
 
----
-
-## Technical Decisions & Changes
-
-### 1. Wallet Model
-**Final Approach:** Built-in wallet per user with private key export
-- Each user gets their own Solana wallet
-- Private keys stored in `./data/user_wallets.json`
-- Users can export private key via `/export` (base58 format for Phantom)
-- Users can import existing wallet via `/import`
-- `/newwallet` requires confirmation to prevent accidental loss
-
-### 2. Price Feed
-- Primary: Binance API (fast, reliable)
-- Fallback: CoinGecko
-
-### 3. On-Chain Trading
-- Uses Jupiter API for swaps/transfers
-- Users deposit SOL to bot wallet address
-- Can withdraw SOL to any address
-
-### 4. Perpetuals (Drift)
-- **Status:** SDK had compatibility issues
-- Users can still use their wallet on Drift UI
+### Keeper Model
+- Creates PositionRequest first
+- Keeper fills the position
+- Uses `CreateIncreasePositionMarketRequest` instruction
 
 ---
 
@@ -139,7 +120,7 @@ We've built a complete Jupiter Perps encoder with:
                        ┌──────────┐   ┌──────────┐    ┌──────────┐
                        │  Binance │   │ Jupiter  │    │  Drift   │
                        │  Price   │   │  Perps   │    │  Perps   │
-                       │  API     │   │ (Coming) │    │ (SDK)    │
+                       │  API     │   │(Testing) │    │ (SDK)    │
                        └──────────┘   └──────────┘    └──────────┘
 ```
 
@@ -150,6 +131,7 @@ We've built a complete Jupiter Perps encoder with:
 1. **Drift SDK** - Node 25 compatibility issues with rpc-websockets
 2. **Wallet persistence** - Wallets stored in server file system, lost on redeploy
    - Use `/import` to restore from exported private key
+3. **Jupiter Perps** - Still testing, close to working!
 
 ---
 
@@ -180,13 +162,11 @@ PAPER_TRADING=true
 ## Lessons Learned
 
 1. **Phantom private key format** - Uses 42-char base58, requires `fromSeed()` not `fromSecretKey()`
-2. **Boolean defaults** - Be careful with `|| true` patterns
+2. **USDC Address** - Real USDC is `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
 3. **Price APIs** - Binance > CoinGecko for real-time
-4. **Env vars** - Not auto-deployed to hosting
-5. **Error handling** - Telegram bots crash silently without try/catch
-6. **bs58 v6** - Use `.default` when requiring
-7. **Node versions** - Drift SDK needs Node 20, not 25
-8. **Jupiter Perps** - Uses keeper model, needs verified addresses from official docs
+4. **Error handling** - Telegram bots crash silently without try/catch
+5. **bs58 v6** - Use `.default` when requiring
+6. **Jupiter Perps** - Uses keeper model, needs verified addresses from official docs
 
 ---
 
