@@ -21,8 +21,8 @@ const MINTS = {
 // Event authority PDA
 const EVENT_AUTHORITY = new PublicKey('37hJBDnntwqhGbK7L6M1bLyvccj4u55CCUiLPdYkiqBN');
 
-// Working discriminator from successful tx
-const INSTANT_INCREASE_DISCRIMINATOR = Buffer.from([0xde, 0x41, 0x03, 0x46, 0x8a, 0x81, 0xd5, 0x1d]);
+// Working discriminators from user's successful transaction
+const INSTANT_INCREASE_DISCRIMINATOR = Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24]);
 
 function encodeU64(value) {
   const bn = BN.isBN(value) ? value : new BN(value.toString());
