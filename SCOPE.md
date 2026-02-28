@@ -27,7 +27,71 @@
 | `/deposit` | ✅ Working | Get deposit address |
 | `/onchain` | ✅ Working | Shows SOL + USDC balance |
 | `/withdraw` | ✅ Working | Withdraw SOL to external address |
-| `/perp` | ✅ Working | Paper trading |
+| `/perp` | ✅ Paper | Paper trading works |
+
+### 🔄 Jupiter Perps Integration (In Progress)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `/perp` (real) | 🔄 Near! | Encoder built, testing |
+| RPC | ✅ Working | Helius API |
+| Instruction building | 🔄 Close! | Most instructions work |
+
+---
+
+## Jupiter Perps - Current Status
+
+### What's Working ✅
+- Transaction builds successfully (6 instructions)
+- CreateIdempotent creates SOL ATA
+- Compute budget instructions work
+- PreSwap instruction executes
+
+### What's Not Working ❌
+- SetTokenLedger instruction (discriminator mismatch)
+- PreSwap/InstantIncrease position encoding
+
+### Key Addresses Discovered
+- **Perp Program:** `PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu`
+- **Pool:** `5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq`
+- **SOL Custody:** `7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz`
+- **USDC Custody:** `G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa`
+- **Token Ledger PDA:** `J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW`
+
+### Transaction Flow (6 steps)
+1. SetComputeUnitLimit
+2. SetComputeUnitPrice
+3. CreateIdempotent (create SOL ATA)
+4. ~~SetTokenLedger~~ (broken - discriminator issue)
+5. InstantIncreasePositionPreSwap
+6. InstantIncreasePosition
+
+---
+
+## What We Need to Complete
+
+### 1. Find Correct SetTokenLedger Discriminator
+The current discriminator `7c2f2732f59e01a0` doesn't match any standard Anchor naming.
+
+### 2. Verify PreSwap/InstantIncrease Data Encoding
+From working tx logs:
+- `collateralTokenDelta`: SOL amount after swap (not USDC input!)
+- `side`: 1 = Long, 2 = Short (confirmed)
+
+### 3. Get a Working Reference
+Need a recent successful Jupiter Perps open position transaction to compare against.
+
+---
+
+## Environment Variables
+```
+TELEGRAM_BOT_TOKEN=7924758270:AAFws2KXCa4nHvSUAgwdOixeJIuCenEpVN0
+HELIUS_API_KEY=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c
+```
+
+---
+
+*Last Updated: 2026-02-28*
 | `/perppositions` | ✅ Working | Paper positions |
 
 ### 🔄 In Progress - Jupiter Perps
