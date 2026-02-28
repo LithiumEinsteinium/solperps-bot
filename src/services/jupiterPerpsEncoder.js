@@ -1,5 +1,4 @@
-const { Connection, PublicKey, TransactionInstruction, SystemProgram } = require('@solana/web3.js');
-const { ComputeBudgetProgram } = require('@solana/web3.js');
+const { Connection, PublicKey, TransactionInstruction, SystemProgram, ComputeBudgetProgram } = require('@solana/web3.js');
 const BN = require('bn.js');
 
 const PERP_PROGRAM_ID = new PublicKey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
@@ -9,7 +8,6 @@ const ATA_PROGRAM = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 const EVENT_AUTHORITY = new PublicKey('Dw274Hf6n1ir4Dw6cSA1ZSe6b445K3nNv5z9sr4j9GiV');
 const PERPETUALS_PDA = new PublicKey('H4ND9aYttUVLFmNypZqLjZ52FYiGvdEB45GmwNoKEjTj');
 
-// Known addresses from working tx
 const TOKEN_LEDGER = new PublicKey('J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW');
 const CUSTODIES = {
   SOL: new PublicKey('7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz'),
@@ -41,31 +39,20 @@ function derivePosPda(owner, custody, collateral, side) {
   )[0];
 }
 
-// Get pool token accounts
-function getPoolTokenAccount(mint) {
-  return getATA(mint, JLP_POOL);
-}
-
 async function buildOpenPositionTransaction(connection, owner, opts) {
   const { market, side, collateralDelta, sizeUsdDelta, priceSlippage } = opts;
   
-  const custody = CUSTODIES[market]; // SOL
+  const custody = CUSTODIES[market];
   const collateral = CUSTODIES.USDC;
   
-  // User's token accounts
   const userUsdcAta = getATA(MINTS.USDC, owner);
   const userSolAta = getATA(MINTS.SOL, owner);
-  
-  // Pool token accounts
-  const poolUsdcAta = getPoolTokenAccount(MINTS.USDC);
-  const poolSolAta = getPoolTokenAccount(MINTS.SOL);
-  
-  // Position PDA
+  const poolUsdcAta = getATA(MINTS.USDC, JLP_POOL);
+  const poolSolAta = getATA(MINTS.SOL, JLP_POOL);
   const positionPda = derivePosPda(owner, custody, collateral, side);
   
-  console.log('DEBUG: userSolAta =', userSolAta.toString());
-  console.log('DEBUG: userUsdcAta =', userUsdcAta.toString());
-  console.log('DEBUG: TOKEN_LEDGER =', TOKEN_LEDGER.toString());
+  console.log('userSolAta:', userSolAta.toString());
+  console.log('userUsdcAta:', userUsdcAta.toString());
   
   const instructions = [];
   
@@ -76,9 +63,22 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 20000 }));
   
   // Step 3: CreateIdempotent - create user's SOL ATA
-  // (This is handled by the system, but we include it conceptually)
+  instructions.push(
+    new TransactionInstruction({
+      programId: ATA_PROGRAM,
+      keys: [
+        { pubkey: owner, isSigner: true, isWritable: true },
+        { pubkey: userSolAta, isSigner: false, isWritable: true },
+        { pubkey: owner, isSigner: false, isWritable: false },
+        { pubkey: MINTS.SOL, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from([1]), // createIdempotent discriminator
+    })
+  );
   
-  // Step 4: SetTokenLedger (with Token Ledger PDA)
+  // Step 4: SetTokenLedger
   const setTokenData = DISCR.setTokenLedger;
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
