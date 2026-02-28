@@ -118,12 +118,15 @@ class JupiterPerpsService {
       const tx = new Transaction();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet;
-      tx.add(...instructions);
+      instructions.forEach(instr => tx.add(instr));
       
       console.log('DEBUG: Signing tx...');
       tx.sign(this.keypair);
+      
+      console.log('DEBUG: Serializing tx...');
+      const serialized = tx.serialize();
       console.log('DEBUG: Sending tx...');
-      const sig = await this.connection.sendTransaction(tx);
+      const sig = await this.connection.sendRawTransaction(serialized);
       
       return { 
         success: true, 
