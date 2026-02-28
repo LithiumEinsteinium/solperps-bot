@@ -1,16 +1,23 @@
 /**
- * Jupiter Perpetuals Service - Simplified
+ * Jupiter Perpetuals Service - Using verified encoder
  */
 
-const { Connection, PublicKey, Keypair } = require('@solana/web3.js');
+const { Connection, PublicKey, Keypair, VersionedTransaction } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
+const BN = require('bn.js');
+
+const { 
+  CUSTODIES, 
+  MINTS,
+  buildOpenPositionTransaction 
+} = require('./jupiterPerpsEncoder');
 
 class JupiterPerpsService {
   constructor() {
     this.connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
     this.keypair = null;
     this.walletAddress = null;
-    console.log('✅ Jupiter Perps ready');
+    console.log('✅ Jupiter Perps v10 (verified addresses)');
   }
 
   async initialize(privateKeyBase58) {
@@ -19,25 +26,63 @@ class JupiterPerpsService {
     return { success: true };
   }
 
+  getUSDC_ATA(owner) {
+    return PublicKey.findProgramAddressSync(
+      [owner.toBuffer(), Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]), MINTS.USDC.toBuffer()],
+      new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
+    )[0];
+  }
+
   async openPosition(symbol, side, amount, leverage) {
     if (!this.keypair) return { error: 'No wallet' };
-    
-    return { 
-      error: `🪐 Jupiter Perps
 
-Your wallet: \`${this.walletAddress}\`
+    const market = symbol.toUpperCase();
+    if (!CUSTODIES[market]) return { error: `Unknown: ${symbol}` };
 
-To trade:
-1. Send USDC to this wallet
-2. Use Phantom/Backpack to connect to app.drift.trade
-3. Trade with this same wallet`,
-      wallet: this.walletAddress
-    };
+    try {
+      const wallet = this.keypair.publicKey;
+      const usdcATA = this.getUSDC_ATA(wallet);
+      
+      const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
+      const collateralDelta = new BN(Math.floor(amount * 1000000));
+      const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
+      
+      const collateralMint = side.toLowerCase() === 'long' ? MINTS.SOL : MINTS.USDC;
+
+      console.log('Building Jupiter transaction...');
+      console.log('Market:', market, 'Side:', side, 'Size:', sizeUSD.toString());
+
+      const tx = await buildOpenPositionTransaction(this.connection, wallet, {
+        market,
+        side,
+        collateralMint,
+        collateralDelta,
+        sizeUsdDelta: sizeUSD,
+        priceSlippage,
+        jupiterMinimumOut: null,
+      });
+
+      tx.sign([this.keypair]);
+
+      console.log('Sending...');
+      const signature = await this.connection.sendTransaction(tx);
+      
+      console.log('✅ Position opened:', signature);
+      return { 
+        success: true, 
+        txid: signature,
+        message: `🪐 *Position Opened!*\n\n${market}: ${side.toUpperCase()} ${leverage}x\nAmount: $${amount}\n\nTx: \`${signature}\``
+      };
+
+    } catch (e) {
+      console.error('Error:', e.message);
+      return { error: e.message };
+    }
   }
 
   async getPositions() { return []; }
   async getAccountInfo() { return { wallet: this.walletAddress }; }
-  async closePosition() { return { error: 'Use UI' }; }
+  async closePosition() { return { error: 'Not impl' }; }
 }
 
 module.exports = { JupiterPerpsService };
