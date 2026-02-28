@@ -91,11 +91,9 @@ class JupiterPerpsService {
         buildOpenPositionTransaction(conn, wallet, {
           market,
           side,
-          collateralMint: MINTS.USDC,
           collateralTokenDelta,
           sizeUsdDelta,
           priceSlippage,
-          counter,
         })
       );
 
