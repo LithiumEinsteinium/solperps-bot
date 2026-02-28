@@ -1,5 +1,5 @@
 /**
- * Jupiter Perpetuals Service - With Anchor
+ * Jupiter Perpetuals Service - With IDL
  */
 
 const { Connection, PublicKey, Keypair, Transaction, TransactionInstruction, SystemProgram } = require('@solana/web3.js');
@@ -16,58 +16,51 @@ function parsePubkey(addr) {
 // Program & accounts
 const JUPITER_PERPS = parsePubkey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
 const POOL = parsePubkey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq');
+const PERPETUALS = parsePubkey('2cJkkCkfQqL7xLhkHBq6Dq7eBqGxBnQ9FJgGmL2NQ4'); // perpetuals config PDA
 const TOKEN_PROGRAM = parsePubkey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ATA_PROGRAM = parsePubkey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 const USDC = parsePubkey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN');
 const SOL = parsePubkey('So11111111111111111111111111111111111111112');
 
-const MARKETS = { 'SOL': 0, 'BTC': 1, 'ETH': 2 };
+// Price oracles
+const DOVES_ORACLE_SOL = parsePubkey('DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e');
+const PYTH_ORACLE_SOL = parsePubkey('H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG');
+
+// Known custody accounts (from pool data)
+const CUSTODY_SOL = parsePubkey('3ZVGKnmbTCUgVSzK2u5JMLTxNv1LUzZcRkWo4mSj9tF9'); // SOL custody
+const CUSTODY_USDC = parsePubkey('4Cdy1uXpGVgjD7qmo49jTAK1eBj1kSZ4UVwZVVpAUoVs'); // USDC custody
+
+// Token accounts
+const CUSTODY_TOKEN_SOL = parsePubkey('J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW');
+const CUSTODY_TOKEN_USDC = parsePubkey('EjBW5tgyMhiBKYMXxLqQQSmpdmkaY3yFyWDAA9xByomy');
+
+// Keeper (use wallet as keeper for now)
+const KEEPER = parsePubkey('7NP4ooX99h4oB3UoGvvLLgYBvRMP7g5CgYCFwDYeYc8J'); // placeholder
+
+const MARKETS = { 'SOL': { custody: CUSTODY_SOL, tokenAccount: CUSTODY_TOKEN_SOL }, 'BTC': {}, 'ETH': {} };
 
 class JupiterPerpsService {
   constructor() {
     this.connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
     this.keypair = null;
     this.walletAddress = null;
-    this.poolData = null;
-    console.log('✅ Jupiter Perps v5 (with pool fetch)');
+    console.log('✅ Jupiter Perps v6 (with IDL)');
   }
 
   async initialize(privateKeyBase58) {
     this.keypair = Keypair.fromSecretKey(bs58.decode(privateKeyBase58));
     this.walletAddress = this.keypair.publicKey.toString();
-    // Pre-fetch pool data
-    await this.fetchPoolData();
     return { success: true };
   }
 
-  // Fetch pool to get custody addresses
-  async fetchPoolData() {
-    try {
-      const info = await this.connection.getParsedAccountInfo(POOL);
-      if (info.value) {
-        // Pool data structure - need to parse
-        console.log('Pool data fetched, length:', info.value.data.length);
-        this.poolData = info.value.data;
-      }
-    } catch (e) {
-      console.log('Pool fetch error:', e.message);
-    }
-  }
-
-  // Derive position PDA: [position, wallet, pool, custody]
+  // Derive position PDA
   getPositionPDA(wallet, custody) {
     return PublicKey.findProgramAddressSync(
-      [
-        Buffer.from('position'),
-        wallet.toBuffer(),
-        POOL.toBuffer(),
-        custody.toBuffer()
-      ],
+      [Buffer.from('position'), wallet.toBuffer(), custody.toBuffer()],
       JUPITER_PERPS
     )[0];
   }
 
-  // Get USDC ATA
   getUSDC_ATA(owner) {
     return PublicKey.findProgramAddressSync(
       [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), USDC.toBuffer()],
@@ -75,60 +68,46 @@ class JupiterPerpsService {
     )[0];
   }
 
-  // Build instruction 5: InstantIncreasePositionPreSwap
-  buildPreSwapIx(wallet, positionPDA, usdcATA, custody, sizeUSD, direction) {
-    const data = Buffer.alloc(40);
-    data.writeUInt8(5, 0); // instruction
-    data.writeBigUInt64LE(BigInt(sizeUSD), 1);  // sizeUsdDelta
-    data.writeUInt32LE(direction === 'long' ? 0 : 1, 17); // side
-    data.writeUInt32LE(50, 21); // slippage 0.5%
-    data.writeBigUInt64LE(BigInt(Math.floor(Date.now() / 1000)), 25); // requestTime
-
-    // Full accounts from transaction analysis
-    const priceOracle = parsePubkey('DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e');
-    const referrer = parsePubkey('Ag28fGtwtpnqassHURUBsQ1WfiyaWWzDDNs4Q28qHRjv');
-    const custodyTokenAccount = parsePubkey('3ZVGKnmbTCUgVSzK2u5JMLTxNv1LUzZcRkWo4mSj9tF9');
-    const userTokenAccount = parsePubkey('4Cdy1uXpGVgjD7qmo49jTAK1eBj1kSZ4UVwZVVpAUoVs');
-
-    return new TransactionInstruction({
-      programId: JUPITER_PERPS,
-      keys: [
-        { pubkey: wallet, isSigner: true, isWritable: true },
-        { pubkey: positionPDA, isSigner: false, isWritable: true },
-        { pubkey: usdcATA, isSigner: false, isWritable: true },
-        { pubkey: POOL, isSigner: false, isWritable: false },
-        { pubkey: custody, isSigner: false, isWritable: false },
-        { pubkey: custodyTokenAccount, isSigner: false, isWritable: false },
-        { pubkey: priceOracle, isSigner: false, isWritable: false },
-        { pubkey: referrer, isSigner: false, isWritable: false },
-        { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-        { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data,
-    });
-  }
-
-  // Build instruction 6: InstantIncreasePosition
-  buildIncreaseIx(wallet, positionPDA, custody, sizeUSD, direction) {
+  // Build instantIncreasePosition instruction from IDL
+  buildIncreasePositionIx(wallet, custody, collateralCustody, sizeUSD, direction, collateralTokenAccount) {
+    // Anchor IDL instruction layout
     const data = Buffer.alloc(33);
-    data.writeUInt8(6, 0);
+    data.writeUInt8(6, 0); // instruction index
+    
+    // size_usd_delta (leverage * amount)
     data.writeBigUInt64LE(BigInt(sizeUSD), 1);
+    
+    // side (0 = long, 1 = short)
     data.writeUInt32LE(direction === 'long' ? 0 : 1, 17);
-    data.writeBigUInt64LE(BigInt(0), 21); // minOutput
+    
+    // price_slippage (BPS)
+    data.writeUInt32LE(50, 21);
+    
+    // min_output (0 for now)
+    data.writeBigUInt64LE(BigInt(0), 25);
 
-    const priceOracle = parsePubkey('DoVEsk76QybCEHQGzkvYPWLQu9gzNoZZZt3TPiL597e');
+    // All accounts from IDL
+    const keys = [
+      { pubkey: KEEPER, isSigner: false, isWritable: false },        // keeper
+      { pubkey: wallet, isSigner: true, isWritable: true },           // owner (also signer)
+      { pubkey: collateralTokenAccount, isSigner: false, isWritable: true }, // fundingAccount
+      { pubkey: PERPETUALS, isSigner: false, isWritable: false },  // perpetuals
+      { pubkey: POOL, isSigner: false, isWritable: false },        // pool
+      { pubkey: this.getPositionPDA(wallet, custody), isSigner: false, isWritable: true }, // position
+      { pubkey: custody, isSigner: false, isWritable: true },      // custody
+      { pubkey: DOVES_ORACLE_SOL, isSigner: false, isWritable: false }, // custodyDovesPriceAccount
+      { pubkey: PYTH_ORACLE_SOL, isSigner: false, isWritable: false }, // custodyPythnetPriceAccount
+      { pubkey: collateralCustody, isSigner: false, isWritable: true }, // collateralCustody
+      { pubkey: DOVES_ORACLE_SOL, isSigner: false, isWritable: false }, // collateralCustodyDovesPriceAccount
+      { pubkey: PYTH_ORACLE_SOL, isSigner: false, isWritable: false }, // collateralCustodyPythnetPriceAccount
+      { pubkey: collateralTokenAccount, isSigner: false, isWritable: true }, // collateralCustodyTokenAccount
+      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false }, // tokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // systemProgram
+    ];
 
     return new TransactionInstruction({
       programId: JUPITER_PERPS,
-      keys: [
-        { pubkey: wallet, isSigner: true, isWritable: true },
-        { pubkey: positionPDA, isSigner: false, isWritable: true },
-        { pubkey: POOL, isSigner: false, isWritable: false },
-        { pubkey: priceOracle, isSigner: false, isWritable: false },
-        { pubkey: custody, isSigner: false, isWritable: false },
-        { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
-      ],
+      keys,
       data,
     });
   }
@@ -136,27 +115,26 @@ class JupiterPerpsService {
   async openPosition(symbol, side, amount, leverage) {
     if (!this.keypair) return { error: 'No wallet' };
 
-    const marketIndex = MARKETS[symbol.toUpperCase()];
-    if (marketIndex === undefined) return { error: `Unknown: ${symbol}` };
+    const market = MARKETS[symbol.toUpperCase()];
+    if (!market || !market.custody) return { error: `Unknown: ${symbol}` };
 
     try {
       const wallet = this.keypair.publicKey;
       const usdcATA = this.getUSDC_ATA(wallet);
       const sizeUSD = Math.floor(amount * leverage * 1000000);
-
-      // Use SOL custody as placeholder
-      const custody = SOL;
-      const positionPDA = this.getPositionPDA(wallet, custody);
+      
+      const custody = market.custody;
+      const collateralCustody = CUSTODY_USDC;
+      const collateralTokenAccount = usdcATA;
 
       const tx = new Transaction();
       const { blockhash } = await this.connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet;
 
-      tx.add(this.buildPreSwapIx(wallet, positionPDA, usdcATA, custody, sizeUSD, side));
-      tx.add(this.buildIncreaseIx(wallet, positionPDA, custody, sizeUSD, side));
+      tx.add(this.buildIncreasePositionIx(wallet, custody, collateralCustody, sizeUSD, side, collateralTokenAccount));
 
-      console.log('Testing with full instruction set...');
+      console.log('Testing with IDL accounts...');
       const sim = await this.connection.simulateTransaction(tx);
       
       if (sim.value.err) {
@@ -164,7 +142,7 @@ class JupiterPerpsService {
         return { error: `Sim failed: ${JSON.stringify(sim.value.err)}` };
       }
 
-      return { success: true };
+      return { success: true, message: 'Position opened!' };
 
     } catch (e) {
       return { error: e.message };
