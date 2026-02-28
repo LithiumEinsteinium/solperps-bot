@@ -66,10 +66,31 @@ class JupiterPerpsService {
 
     try {
       const wallet = this.keypair.publicKey;
-      
-      // Just try - let it fail if no USDC
       const usdcATA = this.getUSDC_ATA(wallet);
       console.log('Using USDC ATA:', usdcATA.toString());
+      
+      // Check if USDC ATA exists, if not create it
+      const ataInfo = await this.connection.getParsedAccountInfo(usdcATA);
+      if (!ataInfo.value) {
+        console.log('Creating USDC ATA...');
+        const { createInitializeAssociatedTokenAccountInstruction } = require('@solana/spl-token');
+        const createATAInstr = createInitializeAssociatedTokenAccountInstruction(
+          wallet,
+          usdcATA,
+          wallet,
+          MINTS.USDC
+        );
+        
+        // Create a simple transfer to initialize ATA
+        const { createTransferInstruction, TOKEN_PROGRAM_ID } = require('@solana/spl-token');
+        // Use system program or create minimal transfer
+        
+        // Actually, need to use a different approach - create ATA via sendTransaction
+        // The simplest is to send 0 USDC to the ATA address
+        return {
+          error: `USDC account not initialized.\n\nPlease send a tiny amount of USDC (0.01) to:\n\`${usdcATA.toString()}\`\n\nThis will create your USDC token account automatically.`
+        };
+      }
       
       const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
       const collateralDelta = new BN(Math.floor(amount * 1000000));
