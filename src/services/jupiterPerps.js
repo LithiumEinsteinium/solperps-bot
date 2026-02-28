@@ -111,6 +111,8 @@ class JupiterPerpsService {
       console.log('DEBUG: wallet type:', typeof wallet);
       console.log('DEBUG: instructions type:', typeof instructions);
       console.log('DEBUG: instructions[0] keys:', instructions[0]?.keys?.map(k => k.pubkey?.toBase58()));
+      console.log('DEBUG: instructions[1] keys:', instructions[1]?.keys?.map(k => k.pubkey?.toBase58()));
+      console.log('DEBUG: instructions[2] keys:', instructions[2]?.keys?.map(k => k.pubkey?.toBase58()));
       
       console.log('DEBUG: Creating TransactionMessage...');
       const message = new TransactionMessage({
