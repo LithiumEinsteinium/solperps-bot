@@ -98,6 +98,7 @@ async function buildOpenPositionTransaction(connection, owner, {
   
   // Perpetuals PDA
   const perpetualsPda = derivePerpetualsPda();
+  console.log('DEBUG: perpetualsPda=', perpetualsPda?.toString());
   
   // Get recent blockhash
   const { blockhash } = await connection.getLatestBlockhash();
