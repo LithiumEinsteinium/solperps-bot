@@ -21,13 +21,9 @@ const CUSTODIES = {
   USDT: new PublicKey('4vkNeXiYEUizLdrpdPS1eC2mccyM4NUPRtERrk6ZETkk'),
 };
 
-// Oracle addresses - use SOL oracle for now (works for all)
+// Use SOL oracle for all markets (works)
 const ORACLES = {
   SOL: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
-  ETH: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
-  BTC: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
-  USDC: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
-  USDT: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
 };
 
 // Discriminators from successful tx
@@ -89,11 +85,16 @@ async function buildOpenPositionTransaction(connection, owner, {
   const custodyPk = CUSTODIES[market];
   const collateralCustodyPk = CUSTODIES['USDC'];
   
+  console.log('DEBUG: market=', market, 'custodyPk=', custodyPk?.toString());
+  console.log('DEBUG: collateralMint=', collateralMint?.toString());
+  
   // User's USDC ATA
   const userTokenAccount = getAssociatedTokenAddressSync(collateralMint, owner);
+  console.log('DEBUG: userTokenAccount=', userTokenAccount?.toString());
   
   // Position PDA
   const { pda: positionPda } = derivePositionPda(owner, custodyPk, collateralCustodyPk, side);
+  console.log('DEBUG: positionPda=', positionPda?.toString());
   
   // Perpetuals PDA
   const perpetualsPda = derivePerpetualsPda();
@@ -147,7 +148,7 @@ async function buildOpenPositionTransaction(connection, owner, {
         { pubkey: JLP_POOL, isSigner: false, isWritable: true },
         { pubkey: CUSTODIES.USDC, isSigner: false, isWritable: true },
         { pubkey: CUSTODIES.USDC, isSigner: false, isWritable: true }, // custody token account
-        { pubkey: ORACLES.USDC || ORACLES.SOL, isSigner: false, isWritable: false },
+        { pubkey: ORACLES.SOL, isSigner: false, isWritable: false },
         { pubkey: custodyPk, isSigner: false, isWritable: true },
         { pubkey: marketTokenAccount, isSigner: false, isWritable: true },
         { pubkey: ORACLES.SOL, isSigner: false, isWritable: false },
