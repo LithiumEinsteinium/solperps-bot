@@ -108,15 +108,20 @@ class JupiterPerpsService {
       console.log('DEBUG: got instructions, blockhash:', blockhash?.slice(0,20));
 
       // Create versioned transaction
-      const message = new TransactionMessage({
-        recentBlockhash: blockhash,
-        feePayer: wallet,
-        instructions,
-      }).compileToV0Message();
-      
-      const tx = new VersionedTransaction(message);
-      tx.sign([this.keypair]);
-      const sig = await this.connection.sendTransaction(tx);
+      try {
+        console.log('DEBUG: wallet type:', typeof wallet);
+        console.log('DEBUG: instructions type:', typeof instructions);
+        console.log('DEBUG: instructions[0] keys:', instructions[0]?.keys?.map(k => k.pubkey?.toBase58()));
+        
+        const message = new TransactionMessage({
+          recentBlockhash: blockhash,
+          feePayer: wallet,
+          instructions,
+        }).compileToV0Message();
+        
+        const tx = new VersionedTransaction(message);
+        tx.sign([this.keypair]);
+        const sig = await this.connection.sendTransaction(tx);
       
       return { 
         success: true, 
