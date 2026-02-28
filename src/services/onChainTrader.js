@@ -11,7 +11,7 @@ class OnChainTrader {
   constructor(config = {}) {
     this.config = config;
     this.connection = new Connection(
-      config.rpcUrl || 'https://api.mainnet-beta.solana.com',
+      config.rpcUrl || 'https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c',
       'confirmed'
     );
     

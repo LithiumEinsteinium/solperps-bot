@@ -69,7 +69,7 @@ class SolPerpsBot {
   constructor(config) {
     this.config = config;
     this.connection = new Connection(
-      config.rpcUrl || 'https://api.mainnet-beta.solana.com',
+      config.rpcUrl || 'https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c',
       'confirmed'
     );
     
@@ -508,7 +508,7 @@ module.exports = { SolPerpsBot };
 if (require.main === module) {
   (async () => {
     const config = {
-      rpcUrl: process.env.RPC_URL || process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com',
+      rpcUrl: process.env.RPC_URL || process.env.SOLANA_RPC || 'https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c',
       paperTrading: process.env.PAPER_TRADING === 'true',
       autoTrade: process.env.AUTO_TRADE === 'true',
       jupiterConfig: {},

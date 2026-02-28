@@ -17,7 +17,7 @@ const {
 
 class JupiterPerpsService {
   constructor(config = {}) {
-    const rpcUrl = config.rpcUrl || process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
+    const rpcUrl = config.rpcUrl || process.env.RPC_URL || 'https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c';
     this.connection = new Connection(rpcUrl, 'confirmed');
 
     this.rpcUrls = [
