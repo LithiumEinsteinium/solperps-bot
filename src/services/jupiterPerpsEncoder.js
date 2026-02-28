@@ -56,7 +56,7 @@ const MINTS = {
 // ── Anchor discriminator helper ───────────────────────────────────────────────
 // Standard formula: sha256("global:<instructionName>")[0..8]
 function anchorDiscriminator(name) {
-  return crypto.createHash('sha256').update(`global:${name}`).digest().slice(0, 8);
+  return crypto.createHash('sha256').update(name).digest().slice(0, 8);
 }
 
 const DISCRIMINATORS = {
