@@ -15,6 +15,12 @@ const {
 class JupiterPerpsService {
   constructor() {
     this.connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+    // Backup RPCs
+    this.rpcUrls = [
+      'https://api.mainnet-beta.solana.com',
+      'https://rpc.ankr.com/solana',
+      'https://solana-rpc.publicnode.com'
+    ];
     this.keypair = null;
     this.walletAddress = null;
     console.log('✅ Jupiter Perps v10 (verified addresses)');
@@ -44,15 +50,18 @@ class JupiterPerpsService {
       const usdcATA = this.getUSDC_ATA(wallet);
       
       // Check if USDC ATA exists
-      const ataInfo = await this.connection.getParsedAccountInfo(usdcATA);
-      if (!ataInfo.value) {
+      console.log('Checking USDC ATA:', usdcATA.toString());
+      const ataInfo = await this.tryCheckAccount(usdcATA);
+      console.log('ATA Info:', ataInfo);
+      
+      if (!ataInfo || !ataInfo.value) {
         return { 
           error: `No USDC token account found.
 
-Your wallet needs a USDC token account.
-1. Send some USDC to: \`${this.walletAddress}\`
-2. The ATA will be created automatically
-3. Then try again`,
+Your ATA: \`${usdcATA.toString()}\`
+
+1. Send some USDC to this address
+2. Then try again`,
           wallet: this.walletAddress
         };
       }
