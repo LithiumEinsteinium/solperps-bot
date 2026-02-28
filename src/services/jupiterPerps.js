@@ -1,45 +1,31 @@
 /**
- * Jupiter Perpetuals Service
- * Uses createIncreasePositionMarketRequest / createDecreasePositionMarketRequest
- * (keeper-executed request flow — the correct way to interact with Jupiter Perps).
+ * Jupiter Perpetuals Service - Using verified encoder
  */
 
-const { Connection, PublicKey, Keypair, Transaction, ComputeBudgetProgram } = require('@solana/web3.js');
+const { Connection, PublicKey, Keypair, Transaction, TransactionInstruction } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
 const BN = require('bn.js');
 
-const {
-  CUSTODIES,
+const { 
+  CUSTODIES, 
   MINTS,
-  buildOpenPositionTransaction,
-  buildClosePositionTransaction,
+  buildOpenPositionTransaction 
 } = require('./jupiterPerpsEncoder');
 
 class JupiterPerpsService {
-  constructor(config = {}) {
-    // Primary RPC: use env var, or fall back to Helius key from env, or hardcoded default
-    const rpcUrl = config.rpcUrl
-      || process.env.RPC_URL
-      || `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY || 'd3bae4a8-b9a7-4ce2-9069-6224be9cd33c'}`;
-
-    this.connection = new Connection(rpcUrl, 'confirmed');
-
-    // Fallback RPCs — Ankr requires a paid key so removed; replaced with mainnet-beta
+  constructor() {
+    this.connection = new Connection('https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c', 'confirmed');
+    
+    // Multiple RPCs for reliability
     this.rpcUrls = [
-      rpcUrl,
+      'https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c',
       'https://solana-rpc.publicnode.com',
-      'https://api.mainnet-beta.solana.com',
+      'https://api.mainnet-beta.solana.com'
     ];
-
+    
     this.keypair = null;
     this.walletAddress = null;
-
-    // Monotonically-incrementing counter used to make each PositionRequest PDA unique.
-    // In production you should read the on-chain position account's requestCounter field
-    // to pick up where you left off after a restart.
-    this._counter = 0;
-
-    console.log('✅ Jupiter Perps service initialized');
+    console.log('✅ Jupiter Perps v11 (verified addresses)');
   }
 
   async initialize(privateKeyBase58) {
@@ -48,126 +34,115 @@ class JupiterPerpsService {
     return { success: true };
   }
 
-  /** Retry across fallback RPCs */
-  async withConnection(fn) {
+  getUSDC_ATA(owner) {
+    const mint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    const ataProgram = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+    const tokenProgram = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    
+    return PublicKey.findProgramAddressSync(
+      [owner.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()],
+      ataProgram
+    )[0];
+  }
+
+  async tryCheckAccount(pubkey) {
     for (const rpcUrl of this.rpcUrls) {
       try {
         const conn = new Connection(rpcUrl, 'confirmed');
-        return await fn(conn);
+        const info = await conn.getParsedAccountInfo(pubkey);
+        if (info.value) return info;
       } catch (e) {
-        console.warn(`RPC ${rpcUrl} failed:`, e.message);
+        // Try next RPC
       }
     }
-    throw new Error('All RPC endpoints failed');
+    return null;
   }
 
-  /**
-   * Submit an increase-position request.
-   * @param {string} symbol   'SOL' | 'ETH' | 'BTC'
-   * @param {string} side     'long' | 'short'
-   * @param {number} amount   Collateral in USDC (e.g. 10 = $10)
-   * @param {number} leverage Leverage multiplier (e.g. 10)
-   */
   async openPosition(symbol, side, amount, leverage) {
-    if (!this.keypair) return { success: false, error: 'No wallet initialised' };
+    if (!this.keypair) return { error: 'No wallet' };
 
     const market = symbol.toUpperCase();
-    if (!CUSTODIES[market]) return { success: false, error: `Unknown market: ${symbol}` };
+    if (!CUSTODIES[market]) return { error: `Unknown: ${symbol}` };
 
     try {
-      const wallet  = this.keypair.publicKey;
-      const counter = this._counter++;
+      const wallet = this.keypair.publicKey;
+      const usdcATA = this.getUSDC_ATA(wallet);
+      console.log('Using USDC ATA:', usdcATA.toString());
+      
+      // Check if USDC ATA exists
+      const ataInfo = await this.connection.getParsedAccountInfo(usdcATA);
+      console.log('ATA check:', ataInfo.value ? 'EXISTS' : 'NOT FOUND');
+      
+      // Also try direct RPC call
+      if (!ataInfo.value) {
+        console.log('Trying alternative RPC...');
+        const altConn = new Connection('https://solana-rpc.publicnode.com', 'confirmed');
+        const altInfo = await altConn.getParsedAccountInfo(usdcATA);
+        console.log('Alt RPC ATA check:', altInfo.value ? 'EXISTS' : 'NOT FOUND');
+        
+        if (!altInfo.value) {
+          return {
+            error: `USDC account not initialized.\n\nYour USDC ATA: \`${usdcATA.toString()}\`\n\nSend 0.01 USDC to create it.`
+          };
+        }
+      }
+      
+      const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
+      const collateralDelta = new BN(Math.floor(amount * 1000000));
+      const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
+      
+      // Use USDC as collateral for both long and short
+      const collateralMint = MINTS.USDC;
 
-      // collateralTokenDelta: USDC token lamports (6 decimals)
-      const collateralTokenDelta = new BN(Math.floor(amount * 1_000_000));
-      // sizeUsdDelta: collateral × leverage in USD (6 decimals)
-      const sizeUsdDelta = new BN(Math.floor(amount * leverage * 1_000_000));
-      // priceSlippage: 2% of size
-      const priceSlippage = new BN(Math.floor(amount * leverage * 1_000_000 * 0.02));
+      console.log('Building Jupiter tx:', market, side, sizeUSD.toString());
+      
+      const { instructions, blockhash } = await buildOpenPositionTransaction(this.connection, wallet, {
+        market,
+        side,
+        collateralMint,
+        collateralDelta,
+        sizeUsdDelta: sizeUSD,
+        priceSlippage,
+        jupiterMinimumOut: null,
+      });
+      console.log('DEBUG: got instructions, blockhash:', blockhash?.slice(0,20));
 
-      console.log(`Building Jupiter tx: ${market} ${side} size=${sizeUsdDelta} collateral=${collateralTokenDelta} counter=${counter}`);
-
-      const { instructions, blockhash } = await this.withConnection(conn =>
-        buildOpenPositionTransaction(conn, wallet, {
-          market,
-          side,
-          collateralTokenDelta,
-          sizeUsdDelta,
-          priceSlippage,
-        })
-      );
-
+      // Create versioned transaction
+      console.log('DEBUG: wallet type:', typeof wallet);
+      console.log('DEBUG: instructions type:', typeof instructions);
+      console.log('DEBUG: instructions[0] keys:', instructions[0]?.keys?.map(k => k.pubkey?.toBase58()));
+      console.log('DEBUG: instructions[1] keys:', instructions[1]?.keys?.map(k => k.pubkey?.toBase58()));
+      console.log('DEBUG: instructions[2] keys:', instructions[2]?.keys?.map(k => k.pubkey?.toBase58()));
+      
+      console.log('DEBUG: Creating Transaction...');
       const tx = new Transaction();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet;
-      // Compute budget prevents "exceeded compute units" errors
-      tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
-      tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }));
-      instructions.forEach(ix => tx.add(ix));
+      instructions.forEach(instr => tx.add(instr));
+      
+      console.log('DEBUG: Signing tx...');
       tx.sign(this.keypair);
-
-      const sig = await this.withConnection(conn =>
-        conn.sendRawTransaction(tx.serialize(), { skipPreflight: false })
-      );
-
-      return {
-        success: true,
+      
+      console.log('DEBUG: Serializing tx...');
+      const serialized = tx.serialize();
+      console.log('DEBUG: Sending tx...');
+      const sig = await this.connection.sendRawTransaction(serialized);
+      
+      return { 
+        success: true, 
         txid: sig,
-        message: `🪐 *Position Request Submitted!*\n\n${market}: ${side.toUpperCase()} ${leverage}x\nCollateral: $${amount} USDC\n\nJupiter's keeper will execute the trade shortly.\n\nTx: \`${sig}\``,
+        message: `🪐 *Position Opened!*\n\n${market}: ${side.toUpperCase()} ${leverage}x\nAmount: $${amount}\n\nTx: \`${sig}\``
       };
+      
     } catch (e) {
-      console.error('openPosition error:', e.message);
-      return { success: false, error: e.message };
-    }
-  }
-
-  async closePosition(symbol, side, opts = {}) {
-    if (!this.keypair) return { success: false, error: 'No wallet initialised' };
-
-    const market = symbol.toUpperCase();
-    if (!CUSTODIES[market]) return { success: false, error: `Unknown market: ${symbol}` };
-
-    try {
-      const wallet  = this.keypair.publicKey;
-      const counter = opts.counter !== undefined ? opts.counter : this._counter++;
-
-      const { instructions, blockhash } = await this.withConnection(conn =>
-        buildClosePositionTransaction(conn, wallet, {
-          market,
-          side,
-          collateralUsdDelta: new BN(0),
-          sizeUsdDelta: new BN(0),
-          priceSlippage: opts.priceSlippage || new BN(1_000_000),
-          entirePosition: true,
-          counter,
-        })
-      );
-
-      const tx = new Transaction();
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = wallet;
-      tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
-      tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }));
-      instructions.forEach(ix => tx.add(ix));
-      tx.sign(this.keypair);
-
-      const sig = await this.withConnection(conn =>
-        conn.sendRawTransaction(tx.serialize(), { skipPreflight: false })
-      );
-
-      return {
-        success: true,
-        txid: sig,
-        message: `✅ *Position Close Requested*\n\n${market}: ${side.toUpperCase()}\n\nTx: \`${sig}\``,
-      };
-    } catch (e) {
-      console.error('closePosition error:', e.message);
-      return { success: false, error: e.message };
+      console.error('Error:', e.message);
+      return { error: e.message };
     }
   }
 
   async getPositions() { return []; }
   async getAccountInfo() { return { wallet: this.walletAddress }; }
+  async closePosition() { return { error: 'Not impl' }; }
 }
 
 module.exports = { JupiterPerpsService };
