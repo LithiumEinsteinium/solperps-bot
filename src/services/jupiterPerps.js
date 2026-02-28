@@ -15,15 +15,17 @@ const {
 class JupiterPerpsService {
   constructor() {
     this.connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
-    // Backup RPCs
+    
+    // Multiple RPCs for reliability
     this.rpcUrls = [
       'https://api.mainnet-beta.solana.com',
       'https://rpc.ankr.com/solana',
       'https://solana-rpc.publicnode.com'
     ];
+    
     this.keypair = null;
     this.walletAddress = null;
-    console.log('✅ Jupiter Perps v10 (verified addresses)');
+    console.log('✅ Jupiter Perps v11 (verified addresses)');
   }
 
   async initialize(privateKeyBase58) {
@@ -33,10 +35,27 @@ class JupiterPerpsService {
   }
 
   getUSDC_ATA(owner) {
+    const mint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    const ataProgram = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+    const tokenProgram = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    
     return PublicKey.findProgramAddressSync(
-      [owner.toBuffer(), Buffer.from([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]), MINTS.USDC.toBuffer()],
-      new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
+      [owner.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()],
+      ataProgram
     )[0];
+  }
+
+  async tryCheckAccount(pubkey) {
+    for (const rpcUrl of this.rpcUrls) {
+      try {
+        const conn = new Connection(rpcUrl, 'confirmed');
+        const info = await conn.getParsedAccountInfo(pubkey);
+        if (info.value) return info;
+      } catch (e) {
+        // Try next RPC
+      }
+    }
+    return null;
   }
 
   async openPosition(symbol, side, amount, leverage) {
@@ -52,20 +71,19 @@ class JupiterPerpsService {
       // Check if USDC ATA exists
       console.log('Checking USDC ATA:', usdcATA.toString());
       const ataInfo = await this.tryCheckAccount(usdcATA);
-      console.log('ATA Info:', ataInfo);
+      console.log('ATA Info:', ataInfo ? 'Found' : 'Not found');
       
-      if (!ataInfo || !ataInfo.value) {
+      if (!ataInfo) {
         return { 
           error: `No USDC token account found.
 
 Your ATA: \`${usdcATA.toString()}\`
 
-1. Send some USDC to this address
-2. Then try again`,
+Send USDC to this address first.`,
           wallet: this.walletAddress
         };
       }
-      
+
       const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
       const collateralDelta = new BN(Math.floor(amount * 1000000));
       const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
