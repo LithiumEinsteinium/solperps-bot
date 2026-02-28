@@ -2,7 +2,7 @@
  * Jupiter Perpetuals Service - Using verified encoder
  */
 
-const { Connection, PublicKey, Keypair, VersionedTransaction, TransactionMessage } = require('@solana/web3.js');
+const { Connection, PublicKey, Keypair, Transaction, TransactionInstruction } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
 const BN = require('bn.js');
 
@@ -114,19 +114,14 @@ class JupiterPerpsService {
       console.log('DEBUG: instructions[1] keys:', instructions[1]?.keys?.map(k => k.pubkey?.toBase58()));
       console.log('DEBUG: instructions[2] keys:', instructions[2]?.keys?.map(k => k.pubkey?.toBase58()));
       
-      console.log('DEBUG: Creating TransactionMessage...');
-      const message = new TransactionMessage({
-        recentBlockhash: blockhash,
-        feePayer: wallet,
-        instructions,
-      });
-      console.log('DEBUG: Compiling to v0...');
-      const compiled = message.compileToV0Message();
-      console.log('DEBUG: Compiled successfully');
+      console.log('DEBUG: Creating Transaction...');
+      const tx = new Transaction();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet;
+      tx.add(...instructions);
       
-      const tx = new VersionedTransaction(compiled);
       console.log('DEBUG: Signing tx...');
-      tx.sign([this.keypair]);
+      tx.sign(this.keypair);
       console.log('DEBUG: Sending tx...');
       const sig = await this.connection.sendTransaction(tx);
       
