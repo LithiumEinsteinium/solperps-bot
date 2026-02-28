@@ -26,11 +26,11 @@ const ORACLES = {
   SOL: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
 };
 
-// Discriminators from successful tx
+// Discriminators from user's successful transaction
 const DISCRIMINATORS = {
-  setTokenLedger: Buffer.from([144, 132, 16, 107, 88, 15, 52, 16]), // SetTokenLedger
-  instantIncreasePositionPreSwap: Buffer.from([57, 36, 219, 76, 1, 50, 35, 41]), // InstantIncreasePositionPreSwap
-  instantIncreasePosition: Buffer.from([98, 131, 219, 90, 68, 196, 71, 11]), // InstantIncreasePosition
+  setTokenLedger: Buffer.from([0x7c, 0x2f, 0x27, 0x32, 0xf5, 0x9e, 0x01, 0xa0]), // fC8nMvWeAaD
+  instantIncreasePositionPreSwap: Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28]), // JyS3bTARYyj6P1vn5csfUw
+  instantIncreasePosition: Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24]), // e2280ddb06444324
 };
 
 // Helpers
