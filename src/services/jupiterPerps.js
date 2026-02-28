@@ -60,23 +60,22 @@ class JupiterPerpsService {
       const wallet = this.keypair.publicKey;
 
       // amount = USDC collateral (6 decimals)
-      const collateralTokenDelta = new BN(Math.floor(amount * 1_000_000));
+      const collateralDelta = new BN(Math.floor(amount * 1_000_000));
       // position size = collateral × leverage (expressed in USD, 6 decimals)
       const sizeUsdDelta = new BN(Math.floor(amount * leverage * 1_000_000));
       // slippage: 2% of size
       const priceSlippage = new BN(Math.floor(amount * leverage * 1_000_000 * 0.02));
 
-      console.log(`Building Jupiter tx: ${market} ${side} size=${sizeUsdDelta} collateral=${collateralTokenDelta}`);
+      console.log(`Building Jupiter tx: ${market} ${side} size=${sizeUsdDelta} collateral=${collateralDelta}`);
 
       const { instructions, blockhash } = await this.withConnection(conn =>
         buildOpenPositionTransaction(conn, wallet, {
           market,
           side,
-          collateralTokenDelta,
+          collateralMint: MINTS.USDC,
+          collateralDelta,
           sizeUsdDelta,
           priceSlippage,
-          jupiterMinimumOut: null,
-          counter: 0,
         })
       );
 
