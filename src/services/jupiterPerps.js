@@ -66,20 +66,19 @@ class JupiterPerpsService {
 
     try {
       const wallet = this.keypair.publicKey;
-      const usdcATA = this.getUSDC_ATA(wallet);
       
-      // Skip the account check - just try the transaction
-      // If USDC account doesn't exist, tx will fail naturally
-
+      // Just try - let it fail if no USDC
+      const usdcATA = this.getUSDC_ATA(wallet);
+      console.log('Using USDC ATA:', usdcATA.toString());
+      
       const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
       const collateralDelta = new BN(Math.floor(amount * 1000000));
       const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
       
       const collateralMint = side.toLowerCase() === 'long' ? MINTS.SOL : MINTS.USDC;
 
-      console.log('Building Jupiter transaction...');
-      console.log('Market:', market, 'Side:', side, 'Size:', sizeUSD.toString());
-
+      console.log('Building Jupiter tx:', market, side, sizeUSD.toString());
+      
       const tx = await buildOpenPositionTransaction(this.connection, wallet, {
         market,
         side,
@@ -91,15 +90,12 @@ class JupiterPerpsService {
       });
 
       tx.sign([this.keypair]);
-
-      console.log('Sending...');
-      const signature = await this.connection.sendTransaction(tx);
+      const sig = await this.connection.sendTransaction(tx);
       
-      console.log('✅ Position opened:', signature);
       return { 
         success: true, 
-        txid: signature,
-        message: `🪐 *Position Opened!*\n\n${market}: ${side.toUpperCase()} ${leverage}x\nAmount: $${amount}\n\nTx: \`${signature}\``
+        txid: sig,
+        message: `🪐 *Position Opened!*\n\n${market}: ${side.toUpperCase()} ${leverage}x\nAmount: $${amount}\n\nTx: \`${sig}\``
       };
 
     } catch (e) {
