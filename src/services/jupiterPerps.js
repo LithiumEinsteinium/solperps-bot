@@ -112,14 +112,20 @@ class JupiterPerpsService {
       console.log('DEBUG: instructions type:', typeof instructions);
       console.log('DEBUG: instructions[0] keys:', instructions[0]?.keys?.map(k => k.pubkey?.toBase58()));
       
+      console.log('DEBUG: Creating TransactionMessage...');
       const message = new TransactionMessage({
         recentBlockhash: blockhash,
         feePayer: wallet,
         instructions,
-      }).compileToV0Message();
+      });
+      console.log('DEBUG: Compiling to v0...');
+      const compiled = message.compileToV0Message();
+      console.log('DEBUG: Compiled successfully');
       
-      const tx = new VersionedTransaction(message);
+      const tx = new VersionedTransaction(compiled);
+      console.log('DEBUG: Signing tx...');
       tx.sign([this.keypair]);
+      console.log('DEBUG: Sending tx...');
       const sig = await this.connection.sendTransaction(tx);
       
       return { 
