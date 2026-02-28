@@ -78,12 +78,13 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 4: SetTokenLedger
+  // Step 4: SetTokenLedger (needs owner as signer + Token Ledger PDA + Token Account)
   const setTokenData = DISCR.setTokenLedger;
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data: setTokenData,
     keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
       { pubkey: TOKEN_LEDGER, isSigner: false, isWritable: true },
       { pubkey: userSolAta, isSigner: false, isWritable: true },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
