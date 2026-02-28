@@ -69,27 +69,22 @@ class JupiterPerpsService {
       const usdcATA = this.getUSDC_ATA(wallet);
       console.log('Using USDC ATA:', usdcATA.toString());
       
-      // Check if USDC ATA exists, if not create it
+      // Check if USDC ATA exists
       const ataInfo = await this.connection.getParsedAccountInfo(usdcATA);
+      console.log('ATA check:', ataInfo.value ? 'EXISTS' : 'NOT FOUND');
+      
+      // Also try direct RPC call
       if (!ataInfo.value) {
-        console.log('Creating USDC ATA...');
-        const { createInitializeAssociatedTokenAccountInstruction } = require('@solana/spl-token');
-        const createATAInstr = createInitializeAssociatedTokenAccountInstruction(
-          wallet,
-          usdcATA,
-          wallet,
-          MINTS.USDC
-        );
+        console.log('Trying alternative RPC...');
+        const altConn = new Connection('https://rpc.ankr.com/solana', 'confirmed');
+        const altInfo = await altConn.getParsedAccountInfo(usdcATA);
+        console.log('Alt RPC ATA check:', altInfo.value ? 'EXISTS' : 'NOT FOUND');
         
-        // Create a simple transfer to initialize ATA
-        const { createTransferInstruction, TOKEN_PROGRAM_ID } = require('@solana/spl-token');
-        // Use system program or create minimal transfer
-        
-        // Actually, need to use a different approach - create ATA via sendTransaction
-        // The simplest is to send 0 USDC to the ATA address
-        return {
-          error: `USDC account not initialized.\n\nPlease send a tiny amount of USDC (0.01) to:\n\`${usdcATA.toString()}\`\n\nThis will create your USDC token account automatically.`
-        };
+        if (!altInfo.value) {
+          return {
+            error: `USDC account not initialized.\n\nYour USDC ATA: \`${usdcATA.toString()}\`\n\nSend 0.01 USDC to create it.`
+          };
+        }
       }
       
       const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
