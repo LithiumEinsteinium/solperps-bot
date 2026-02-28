@@ -130,6 +130,10 @@ async function buildOpenPositionTransaction(connection, owner, {
   
   // Step 2: InstantIncreasePositionPreSwap (swap USDC → asset)
   console.log('DEBUG: Building PreSwap...');
+  console.log('DEBUG: collateralDelta=', collateralDelta?.toString());
+  console.log('DEBUG: sizeUsdDelta=', sizeUsdDelta?.toString());
+  console.log('DEBUG: DISCRIMINATORS.instantIncreasePositionPreSwap=', DISCRIMINATORS.instantIncreasePositionPreSwap);
+  
   const preSwapData = Buffer.concat([
     DISCRIMINATORS.instantIncreasePositionPreSwap,
     encodeU64(collateralDelta),
@@ -142,6 +146,9 @@ async function buildOpenPositionTransaction(connection, owner, {
   // Get token account for market (SOL vault)
   const marketMint = new PublicKey('So11111111111111111111111111111111111111112');
   const marketTokenAccount = getAssociatedTokenAddressSync(marketMint, JLP_POOL);
+  console.log('DEBUG: marketTokenAccount=', marketTokenAccount?.toString());
+  
+  console.log('DEBUG: pushing PreSwap instruction...');
   
   instructions.push(
     new TransactionInstruction({
