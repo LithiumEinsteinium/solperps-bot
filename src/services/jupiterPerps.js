@@ -68,21 +68,8 @@ class JupiterPerpsService {
       const wallet = this.keypair.publicKey;
       const usdcATA = this.getUSDC_ATA(wallet);
       
-      // Check if USDC ATA exists
-      console.log('Checking USDC ATA:', usdcATA.toString());
-      const ataInfo = await this.tryCheckAccount(usdcATA);
-      console.log('ATA Info:', ataInfo ? 'Found' : 'Not found');
-      
-      if (!ataInfo) {
-        return { 
-          error: `No USDC token account found.
-
-Your ATA: \`${usdcATA.toString()}\`
-
-Send USDC to this address first.`,
-          wallet: this.walletAddress
-        };
-      }
+      // Skip the account check - just try the transaction
+      // If USDC account doesn't exist, tx will fail naturally
 
       const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
       const collateralDelta = new BN(Math.floor(amount * 1000000));
