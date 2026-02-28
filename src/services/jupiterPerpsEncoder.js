@@ -153,9 +153,8 @@ function createIncreasePositionMarketRequest({
   jupiterMinimumOut = null,
 }) {
   const custodyPk = CUSTODIES[market];
-  const collateralCustodyPk = side.toLowerCase() === 'long'
-    ? custodyPk
-    : CUSTODIES['USDC'];
+  // Use USDC as collateral for both long and short (simpler)
+  const collateralCustodyPk = CUSTODIES['USDC'];
 
   const { pda: positionPda } = derivePositionPda(owner, custodyPk, collateralCustodyPk, side);
   const counter = randomCounter();
