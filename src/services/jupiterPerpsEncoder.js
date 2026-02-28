@@ -1,19 +1,15 @@
 /**
  * Jupiter Perpetuals Encoder
  *
- * Uses the correct user-facing instructions from the Jupiter Perps IDL:
- *   1. createIncreasePositionMarketRequest  — user signs, submits collateral
- *   2. createDecreasePositionMarketRequest  — user signs to close
+ * Instruction layout derived directly from jupiter_idl.json (on-chain IDL).
  *
- * Jupiter's off-chain keepers then execute the request automatically.
- * This is the ONLY flow available to end users; "instantIncreasePosition"
- * requires keeper signers controlled by Jupiter and cannot be called directly.
+ * createIncreasePositionMarketRequest — 16 accounts, referral at index 10
+ * createDecreasePositionMarketRequest — 16 accounts, referral at index 10
  *
  * Program: PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu
  */
 
 const {
-  Connection,
   PublicKey,
   TransactionInstruction,
   SystemProgram,
@@ -23,7 +19,12 @@ const BN = require('bn.js');
 const PERP_PROGRAM_ID = new PublicKey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ATA_PROGRAM_ID  = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-const JLP_POOL = new PublicKey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq');
+const JLP_POOL        = new PublicKey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq');
+const EVENT_AUTHORITY = new PublicKey('Dw274Hf6n1ir4Dw6cSA1ZSe6b445K3nNv5z9sr4j9GiV');
+
+// No referral — use default (system program) as a null stand-in.
+// Jupiter UI passes SystemProgram.programId when there is no referral.
+const NO_REFERRAL = SystemProgram.programId;
 
 const CUSTODIES = {
   SOL:  new PublicKey('7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz'),
@@ -48,12 +49,14 @@ const ORACLES = {
   USDC: { doves: new PublicKey('Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btez1oNyXRTBvLhd'), pythnet: new PublicKey('Dp3HCUDzxcvqA4J86cBtN8PFMRR3XLrHEQvUGqkmXsJK') },
 };
 
-const EVENT_AUTHORITY = new PublicKey('Dw274Hf6n1ir4Dw6cSA1ZSe6b445K3nNv5z9sr4j9GiV');
-
+// Discriminators = sha256("global:<camelCaseInstructionName>")[0:8]
+// Verified against jupiter_idl.json instruction names.
 const DISCRIMINATORS = {
   createIncreasePositionMarketRequest: Buffer.from([183, 198, 97, 169, 35, 1, 225, 57]),
   createDecreasePositionMarketRequest: Buffer.from([147, 238, 76, 91, 48, 86, 167, 253]),
 };
+
+// ==================== ENCODING HELPERS ====================
 
 function encodeU64(value) {
   const bn = BN.isBN(value) ? value : new BN(value.toString());
@@ -73,11 +76,14 @@ function encodeOptionBool(value) {
 }
 
 function encodeSide(side) {
+  // Side enum: None=0, Long=1, Short=2
   const s = side.toLowerCase();
-  if (s === 'long')  return Buffer.from([1]);
-  if (s === 'short') return Buffer.from([2]);
+  if (s === 'long')  return Buffer.from([1]); // Borsh C-enum: Long=1
+  if (s === 'short') return Buffer.from([2]); // Borsh C-enum: Short=2
   throw new Error(`Unknown side: ${side}`);
 }
+
+// ==================== PDA HELPERS ====================
 
 function getAssociatedTokenAddress(mint, owner) {
   return PublicKey.findProgramAddressSync(
@@ -89,14 +95,23 @@ function getAssociatedTokenAddress(mint, owner) {
 function derivePositionPda(owner, custodyPk, collateralCustodyPk, side) {
   const sideStr = side.toLowerCase() === 'long' ? 'long' : 'short';
   const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from('position'), owner.toBuffer(), custodyPk.toBuffer(), collateralCustodyPk.toBuffer(), Buffer.from(sideStr)],
+    [
+      Buffer.from('position'),
+      owner.toBuffer(),
+      custodyPk.toBuffer(),
+      collateralCustodyPk.toBuffer(),
+      Buffer.from(sideStr),
+    ],
     PERP_PROGRAM_ID
   );
   return pda;
 }
 
 function derivePerpetualsPda() {
-  const [pda] = PublicKey.findProgramAddressSync([Buffer.from('perpetuals')], PERP_PROGRAM_ID);
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from('perpetuals')],
+    PERP_PROGRAM_ID
+  );
   return pda;
 }
 
@@ -105,23 +120,51 @@ function derivePositionRequestPda(owner, positionPda, counter) {
   const counterBN = BN.isBN(counter) ? counter : new BN(counter.toString());
   counterBN.toArray('le', 8).forEach((b, i) => counterBuf.writeUInt8(b, i));
   const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from('position_request'), owner.toBuffer(), positionPda.toBuffer(), counterBuf],
+    [
+      Buffer.from('position_request'),
+      owner.toBuffer(),
+      positionPda.toBuffer(),
+      counterBuf,
+    ],
     PERP_PROGRAM_ID
   );
   return pda;
 }
 
+// ==================== TRANSACTION BUILDERS ====================
+
+/**
+ * Build a createIncreasePositionMarketRequest instruction.
+ *
+ * IDL account order (16 accounts):
+ *  0  owner                  mut signer
+ *  1  fundingAccount         mut
+ *  2  perpetuals             readonly
+ *  3  pool                   readonly
+ *  4  position               mut
+ *  5  positionRequest        mut
+ *  6  positionRequestAta     mut
+ *  7  custody                readonly
+ *  8  collateralCustody      readonly
+ *  9  inputMint              readonly
+ * 10  referral               readonly   ← was missing in previous version
+ * 11  tokenProgram           readonly
+ * 12  associatedTokenProgram readonly
+ * 13  systemProgram          readonly
+ * 14  eventAuthority         readonly
+ * 15  program                readonly
+ */
 async function buildOpenPositionTransaction(connection, owner, opts) {
-  // Accept both old param name (collateralDelta) and new canonical name (collateralTokenDelta)
   const {
     market,
     side,
     collateralTokenDelta,
-    collateralDelta,          // legacy alias
+    collateralDelta,        // legacy alias
     sizeUsdDelta,
     priceSlippage,
     jupiterMinimumOut = null,
     counter = 0,
+    referral = null,        // optional referral PublicKey
   } = opts;
 
   const collateral = collateralTokenDelta || collateralDelta;
@@ -136,9 +179,12 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const positionPda         = derivePositionPda(owner, custodyPk, collateralCustodyPk, side);
   const positionRequestPda  = derivePositionRequestPda(owner, positionPda, counter);
   const positionRequestAta  = getAssociatedTokenAddress(inputMint, positionRequestPda);
+  const referralPk          = referral ? new PublicKey(referral) : NO_REFERRAL;
 
   const { blockhash } = await connection.getLatestBlockhash();
 
+  // Params: CreateIncreasePositionMarketRequestParams
+  // Fields (in IDL order): sizeUsdDelta, collateralTokenDelta, side, priceSlippage, jupiterMinimumOut, counter
   const paramsData = Buffer.concat([
     encodeU64(sizeUsdDelta),
     encodeU64(collateral),
@@ -151,29 +197,61 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const data = Buffer.concat([DISCRIMINATORS.createIncreasePositionMarketRequest, paramsData]);
 
   const keys = [
-    { pubkey: owner,               isSigner: true,  isWritable: true  },
-    { pubkey: fundingAccount,      isSigner: false, isWritable: true  },
-    { pubkey: perpetualsPda,       isSigner: false, isWritable: false },
-    { pubkey: JLP_POOL,            isSigner: false, isWritable: false },
-    { pubkey: positionPda,         isSigner: false, isWritable: true  },
-    { pubkey: positionRequestPda,  isSigner: false, isWritable: true  },
-    { pubkey: positionRequestAta,  isSigner: false, isWritable: true  },
-    { pubkey: custodyPk,           isSigner: false, isWritable: false },
-    { pubkey: collateralCustodyPk, isSigner: false, isWritable: false },
-    { pubkey: inputMint,           isSigner: false, isWritable: false },
-    { pubkey: TOKEN_PROGRAM_ID,    isSigner: false, isWritable: false },
-    { pubkey: ATA_PROGRAM_ID,      isSigner: false, isWritable: false },
-    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    { pubkey: EVENT_AUTHORITY,     isSigner: false, isWritable: false },
-    { pubkey: PERP_PROGRAM_ID,     isSigner: false, isWritable: false },
+    { pubkey: owner,               isSigner: true,  isWritable: true  }, //  0
+    { pubkey: fundingAccount,      isSigner: false, isWritable: true  }, //  1
+    { pubkey: perpetualsPda,       isSigner: false, isWritable: false }, //  2
+    { pubkey: JLP_POOL,            isSigner: false, isWritable: false }, //  3
+    { pubkey: positionPda,         isSigner: false, isWritable: true  }, //  4
+    { pubkey: positionRequestPda,  isSigner: false, isWritable: true  }, //  5
+    { pubkey: positionRequestAta,  isSigner: false, isWritable: true  }, //  6
+    { pubkey: custodyPk,           isSigner: false, isWritable: false }, //  7
+    { pubkey: collateralCustodyPk, isSigner: false, isWritable: false }, //  8
+    { pubkey: inputMint,           isSigner: false, isWritable: false }, //  9
+    { pubkey: referralPk,          isSigner: false, isWritable: false }, // 10 referral
+    { pubkey: TOKEN_PROGRAM_ID,    isSigner: false, isWritable: false }, // 11
+    { pubkey: ATA_PROGRAM_ID,      isSigner: false, isWritable: false }, // 12
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 13
+    { pubkey: EVENT_AUTHORITY,     isSigner: false, isWritable: false }, // 14
+    { pubkey: PERP_PROGRAM_ID,     isSigner: false, isWritable: false }, // 15
   ];
 
   const instruction = new TransactionInstruction({ programId: PERP_PROGRAM_ID, keys, data });
   return { instructions: [instruction], blockhash, positionRequestPda };
 }
 
+/**
+ * Build a createDecreasePositionMarketRequest instruction.
+ *
+ * IDL account order (16 accounts):
+ *  0  owner                  mut signer
+ *  1  receivingAccount       mut
+ *  2  perpetuals             readonly
+ *  3  pool                   readonly
+ *  4  position               readonly   ← IDL says isMut=false
+ *  5  positionRequest        mut
+ *  6  positionRequestAta     mut
+ *  7  custody                readonly
+ *  8  collateralCustody      readonly
+ *  9  desiredMint            readonly
+ * 10  referral               readonly   ← was missing in previous version
+ * 11  tokenProgram           readonly
+ * 12  associatedTokenProgram readonly
+ * 13  systemProgram          readonly
+ * 14  eventAuthority         readonly
+ * 15  program                readonly
+ */
 async function buildClosePositionTransaction(connection, owner, opts) {
-  const { market, side, collateralUsdDelta, sizeUsdDelta, priceSlippage, entirePosition = true, jupiterMinimumOut = null, counter = 0 } = opts;
+  const {
+    market,
+    side,
+    collateralUsdDelta,
+    sizeUsdDelta,
+    priceSlippage,
+    entirePosition = true,
+    jupiterMinimumOut = null,
+    counter = 0,
+    referral = null,
+  } = opts;
 
   if (!CUSTODIES[market]) throw new Error(`Unknown market: ${market}`);
 
@@ -185,9 +263,12 @@ async function buildClosePositionTransaction(connection, owner, opts) {
   const positionPda         = derivePositionPda(owner, custodyPk, collateralCustodyPk, side);
   const positionRequestPda  = derivePositionRequestPda(owner, positionPda, counter);
   const positionRequestAta  = getAssociatedTokenAddress(desiredMint, positionRequestPda);
+  const referralPk          = referral ? new PublicKey(referral) : NO_REFERRAL;
 
   const { blockhash } = await connection.getLatestBlockhash();
 
+  // Params: CreateDecreasePositionMarketRequestParams
+  // Fields (in IDL order): collateralUsdDelta, sizeUsdDelta, priceSlippage, jupiterMinimumOut, entirePosition, counter
   const paramsData = Buffer.concat([
     encodeU64(collateralUsdDelta),
     encodeU64(sizeUsdDelta),
@@ -200,21 +281,22 @@ async function buildClosePositionTransaction(connection, owner, opts) {
   const data = Buffer.concat([DISCRIMINATORS.createDecreasePositionMarketRequest, paramsData]);
 
   const keys = [
-    { pubkey: owner,               isSigner: true,  isWritable: true  },
-    { pubkey: receivingAccount,    isSigner: false, isWritable: true  },
-    { pubkey: perpetualsPda,       isSigner: false, isWritable: false },
-    { pubkey: JLP_POOL,            isSigner: false, isWritable: false },
-    { pubkey: positionPda,         isSigner: false, isWritable: true  },
-    { pubkey: positionRequestPda,  isSigner: false, isWritable: true  },
-    { pubkey: positionRequestAta,  isSigner: false, isWritable: true  },
-    { pubkey: custodyPk,           isSigner: false, isWritable: false },
-    { pubkey: collateralCustodyPk, isSigner: false, isWritable: false },
-    { pubkey: desiredMint,         isSigner: false, isWritable: false },
-    { pubkey: TOKEN_PROGRAM_ID,    isSigner: false, isWritable: false },
-    { pubkey: ATA_PROGRAM_ID,      isSigner: false, isWritable: false },
-    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    { pubkey: EVENT_AUTHORITY,     isSigner: false, isWritable: false },
-    { pubkey: PERP_PROGRAM_ID,     isSigner: false, isWritable: false },
+    { pubkey: owner,               isSigner: true,  isWritable: true  }, //  0
+    { pubkey: receivingAccount,    isSigner: false, isWritable: true  }, //  1
+    { pubkey: perpetualsPda,       isSigner: false, isWritable: false }, //  2
+    { pubkey: JLP_POOL,            isSigner: false, isWritable: false }, //  3
+    { pubkey: positionPda,         isSigner: false, isWritable: false }, //  4 readonly per IDL
+    { pubkey: positionRequestPda,  isSigner: false, isWritable: true  }, //  5
+    { pubkey: positionRequestAta,  isSigner: false, isWritable: true  }, //  6
+    { pubkey: custodyPk,           isSigner: false, isWritable: false }, //  7
+    { pubkey: collateralCustodyPk, isSigner: false, isWritable: false }, //  8
+    { pubkey: desiredMint,         isSigner: false, isWritable: false }, //  9
+    { pubkey: referralPk,          isSigner: false, isWritable: false }, // 10 referral
+    { pubkey: TOKEN_PROGRAM_ID,    isSigner: false, isWritable: false }, // 11
+    { pubkey: ATA_PROGRAM_ID,      isSigner: false, isWritable: false }, // 12
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 13
+    { pubkey: EVENT_AUTHORITY,     isSigner: false, isWritable: false }, // 14
+    { pubkey: PERP_PROGRAM_ID,     isSigner: false, isWritable: false }, // 15
   ];
 
   const instruction = new TransactionInstruction({ programId: PERP_PROGRAM_ID, keys, data });
