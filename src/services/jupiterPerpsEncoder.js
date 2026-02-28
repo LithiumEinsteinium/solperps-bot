@@ -14,9 +14,17 @@ const {
   SYSVAR_RENT_PUBKEY,
 } = require('@solana/web3.js');
 
-const { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } = require('@solana/spl-token');
-
 const BN = require('bn.js');
+
+// Simple ATA derivation (avoid spl-token issues)
+function getAssociatedTokenAddressSync(mint, owner, allowOwnerOffCurve = false) {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), mint.toBuffer()],
+    new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
+  )[0];
+}
+
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 
 // Program & Pool Constants
 const PERP_PROGRAM_ID = new PublicKey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
@@ -59,12 +67,12 @@ const ORACLE_ACCOUNTS = {
   USDT: new PublicKey('3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL'),
 };
 
-// Mint addresses
+// Mint addresses - CORRECT Solana addresses
 const MINTS = {
   SOL:  new PublicKey('So11111111111111111111111111111111111111112'),
   ETH:  new PublicKey('7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs'),
   BTC:  new PublicKey('9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E'),
-  USDC: new PublicKey('EPjFWdd5AufqSSqeM2qNStxVNLX5kM4jE5cG4HkJQN'),
+  USDC: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
   USDT: new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
 };
 
