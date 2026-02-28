@@ -96,26 +96,28 @@ class JupiterPerpsService {
 
       console.log('Building Jupiter tx:', market, side, sizeUSD.toString());
       
-      const { instructions, blockhash } = await buildOpenPositionTransaction(this.connection, wallet, {
-        market,
-        side,
-        collateralMint,
-        collateralDelta,
-        sizeUsdDelta: sizeUSD,
-        priceSlippage,
-        jupiterMinimumOut: null,
-      });
+      try {
+        const { instructions, blockhash } = await buildOpenPositionTransaction(this.connection, wallet, {
+          market,
+          side,
+          collateralMint,
+          collateralDelta,
+          sizeUsdDelta: sizeUSD,
+          priceSlippage,
+          jupiterMinimumOut: null,
+        });
+        console.log('DEBUG: got instructions, blockhash:', blockhash?.slice(0,20));
 
-      // Create versioned transaction
-      const message = new TransactionMessage({
-        recentBlockhash: blockhash,
-        feePayer: wallet,
-        instructions,
-      }).compileToV0Message();
-      
-      const tx = new VersionedTransaction(message);
-      tx.sign([this.keypair]);
-      const sig = await this.connection.sendTransaction(tx);
+        // Create versioned transaction
+        const message = new TransactionMessage({
+          recentBlockhash: blockhash,
+          feePayer: wallet,
+          instructions,
+        }).compileToV0Message();
+        
+        const tx = new VersionedTransaction(message);
+        tx.sign([this.keypair]);
+        const sig = await this.connection.sendTransaction(tx);
       
       return { 
         success: true, 
