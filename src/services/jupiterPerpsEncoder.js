@@ -18,21 +18,19 @@ const MINTS = {
   USDC: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
 };
 
-// Discriminators from user's transaction
-const SET_TOKEN_LEDGER_DISCRIM = Buffer.from([0x7c, 0x2f, 0x27, 0x32, 0xf5, 0x9e, 0x01, 0xa0]);
-const PRE_SWAP_DISCRIM = Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28]);
-const INSTANT_INCREASE_DISCRIM = Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24]);
+// Fixed addresses from working tx
+const ORACLES = {
+  SOL: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'),
+};
 
-function encodeU64(value) {
-  const bn = BN.isBN(value) ? value : new BN(value.toString());
-  const buf = Buffer.alloc(8);
-  bn.toArray('le', 8).forEach((b, i) => buf.writeUInt8(b, i));
-  return buf;
-}
+const DISCRIM = {
+  setTokenLedger: Buffer.from([0x7c, 0x2f, 0x27, 0x32, 0xf5, 0x9e, 0x01, 0xa0]),
+  preSwap: Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28]),
+  instantIncrease: Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24]),
+};
 
-function encodeSide(side) {
-  return Buffer.from([side.toLowerCase() === 'long' ? 1 : 2]);
-}
+function encodeU64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeUInt8(x, i)); return b; }
+function encodeSide(s) { return Buffer.from([s.toLowerCase() === 'long' ? 1 : 2]); }
 
 function getATA(mint, owner) {
   return PublicKey.findProgramAddressSync(
@@ -42,9 +40,8 @@ function getATA(mint, owner) {
 }
 
 function derivePositionPda(owner, custodyPk, collateralCustodyPk, side) {
-  const sideStr = side.toLowerCase() === 'long' ? 'long' : 'short';
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('position'), owner.toBuffer(), custodyPk.toBuffer(), collateralCustodyPk.toBuffer(), Buffer.from(sideStr)],
+    [Buffer.from('position'), owner.toBuffer(), custodyPk.toBuffer(), collateralCustodyPk.toBuffer(), Buffer.from(side.toLowerCase() === 'long' ? 'long' : 'short')],
     PERP_PROGRAM_ID
   )[0];
 }
@@ -52,66 +49,55 @@ function derivePositionPda(owner, custodyPk, collateralCustodyPk, side) {
 async function buildOpenPositionTransaction(connection, owner, opts) {
   const { market, side, collateralTokenDelta, sizeUsdDelta, priceSlippage } = opts;
   
-  const custodyPk = CUSTODIES[market];
+  const custodyPk = CUSTODIES[market]; // SOL custody
   const collateralCustodyPk = CUSTODIES.USDC;
-  const collateralMint = MINTS.SOL;  // SOL as collateral
   
-  const userSolAta = getATA(collateralMint, owner);
+  // User's USDC ATA (not SOL!)
+  const userUsdcAta = getATA(MINTS.USDC, owner);
   const positionPda = derivePositionPda(owner, custodyPk, collateralCustodyPk, side);
   
-  // Pool token accounts
-  const poolSolAta = getATA(collateralMint, JLP_POOL);
+  // Pool accounts
   const poolUsdcAta = getATA(MINTS.USDC, JLP_POOL);
+  const poolSolAta = getATA(MINTS.SOL, JLP_POOL);
   
-  console.log('DEBUG: userSolAta=', userSolAta.toString());
-  console.log('DEBUG: poolSolAta=', poolSolAta.toString());
-  console.log('DEBUG: poolUsdcAta=', poolUsdcAta.toString());
-  console.log('DEBUG: positionPda=', positionPda.toString());
+  console.log('DEBUG: userUsdcAta (funding) =', userUsdcAta.toString());
+  console.log('DEBUG: poolSolAta =', poolSolAta.toString());
+  console.log('DEBUG: poolUsdcAta =', poolUsdcAta.toString());
   
   const instructions = [];
   
-  // Step 1: SetTokenLedger (just funding account + perpetuals)
-  const setTokenLedgerData = Buffer.concat([
-    SET_TOKEN_LEDGER_DISCRIM,
-    userSolAta.toBuffer(),
-    encodeU64(0),
-  ]);
+  // Step 1: SetTokenLedger (point to user's USDC ATA - pool will provide SOL)
+  const setData = Buffer.concat([DISCRIM.setTokenLedger, userUsdcAta.toBuffer(), encodeU64(0)]);
   instructions.push(
     new TransactionInstruction({
       programId: PERP_PROGRAM_ID,
-      data: setTokenLedgerData,
+      data: setData,
       keys: [
-        { pubkey: userSolAta, isSigner: false, isWritable: true },
+        { pubkey: userUsdcAta, isSigner: false, isWritable: true },
         { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false },
       ],
     })
   );
   
-  // Step 2: InstantIncreasePositionPreSwap (13 accounts - exact order from tx)
-  const preSwapData = Buffer.concat([
-    PRE_SWAP_DISCRIM,
-    encodeU64(collateralTokenDelta),
-    encodeU64(sizeUsdDelta),
-    encodeSide(side),
-    encodeU64(priceSlippage),
-  ]);
+  // Step 2: PreSwap - pool provides SOL, takes USDC
+  const preData = Buffer.concat([DISCRIM.preSwap, encodeU64(collateralTokenDelta), encodeU64(sizeUsdDelta), encodeSide(side), encodeU64(priceSlippage)]);
   instructions.push(
     new TransactionInstruction({
       programId: PERP_PROGRAM_ID,
-      data: preSwapData,
+      data: preData,
       keys: [
         { pubkey: owner, isSigner: true, isWritable: true },
-        { pubkey: userSolAta, isSigner: false, isWritable: true },
+        { pubkey: userUsdcAta, isSigner: false, isWritable: true },
         { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false },
         { pubkey: JLP_POOL, isSigner: false, isWritable: true },
         { pubkey: collateralCustodyPk, isSigner: false, isWritable: true },
         { pubkey: poolUsdcAta, isSigner: false, isWritable: true },
         { pubkey: poolSolAta, isSigner: false, isWritable: true },
-        { pubkey: collateralMint, isSigner: false, isWritable: false },
+        { pubkey: MINTS.SOL, isSigner: false, isWritable: false },
         { pubkey: MINTS.USDC, isSigner: false, isWritable: false },
         { pubkey: custodyPk, isSigner: false, isWritable: true },
-        { pubkey: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'), isSigner: false, isWritable: false },
-        { pubkey: new PublicKey('6Jp2xZUTWdDD2ZyUPRzeMdc6AFQ5K3pFgZxk2EijfjnM'), isSigner: false, isWritable: false },
+        { pubkey: ORACLES.SOL, isSigner: false, isWritable: false },
+        { pubkey: ORACLES.SOL, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: new PublicKey('Sysvar1nstructions1111111111111111111111111'), isSigner: false, isWritable: false },
         { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false },
@@ -120,14 +106,8 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 3: InstantIncreasePosition (12 accounts - exact order from tx)
-  const instantData = Buffer.concat([
-    INSTANT_INCREASE_DISCRIM,
-    encodeU64(sizeUsdDelta),
-    encodeU64(collateralTokenDelta),
-    encodeSide(side),
-    encodeU64(priceSlippage),
-  ]);
+  // Step 3: InstantIncreasePosition
+  const instantData = Buffer.concat([DISCRIM.instantIncrease, encodeU64(sizeUsdDelta), encodeU64(collateralTokenDelta), encodeSide(side), encodeU64(priceSlippage)]);
   instructions.push(
     new TransactionInstruction({
       programId: PERP_PROGRAM_ID,
@@ -135,14 +115,17 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
       keys: [
         { pubkey: owner, isSigner: true, isWritable: true },
         { pubkey: positionPda, isSigner: false, isWritable: true },
-        { pubkey: userSolAta, isSigner: false, isWritable: true },
+        { pubkey: userUsdcAta, isSigner: false, isWritable: true },
         { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false },
         { pubkey: JLP_POOL, isSigner: false, isWritable: true },
         { pubkey: custodyPk, isSigner: false, isWritable: true },
         { pubkey: collateralCustodyPk, isSigner: false, isWritable: true },
-        { pubkey: collateralMint, isSigner: false, isWritable: false },
-        { pubkey: new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh'), isSigner: false, isWritable: false },
-        { pubkey: new PublicKey('6Jp2xZUTWdDD2ZyUPRzeMdc6AFQ5K3pFgZxk2EijfjnM'), isSigner: false, isWritable: false },
+        { pubkey: MINTS.SOL, isSigner: false, isWritable: false },
+        { pubkey: ORACLES.SOL, isSigner: false, isWritable: false },
+        { pubkey: ORACLES.SOL, isSigner: false, isWritable: false },
+        { pubkey: poolSolAta, isSigner: false, isWritable: true },
+        { pubkey: poolUsdcAta, isSigner: false, isWritable: true },
+        { pubkey: MINTS.USDC, isSigner: false, isWritable: false },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false },
@@ -155,8 +138,4 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   return { instructions, blockhash };
 }
 
-module.exports = {
-  CUSTODIES,
-  MINTS,
-  buildOpenPositionTransaction,
-};
+module.exports = { CUSTODIES, MINTS, buildOpenPositionTransaction };
