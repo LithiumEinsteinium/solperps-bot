@@ -52,8 +52,8 @@ const ORACLES = {
 // Discriminators = sha256("global:<camelCaseInstructionName>")[0:8]
 // Verified against jupiter_idl.json instruction names.
 const DISCRIMINATORS = {
-  createIncreasePositionMarketRequest: Buffer.from([183, 198, 97, 169, 35, 1, 225, 57]),
-  createDecreasePositionMarketRequest: Buffer.from([147, 238, 76, 91, 48, 86, 167, 253]),
+  createIncreasePositionMarketRequest: Buffer.from([157, 204, 7, 6, 214, 64, 34, 49]),
+  createDecreasePositionMarketRequest: Buffer.from([198, 150, 56, 176, 53, 17, 59, 146]),
 };
 
 // ==================== ENCODING HELPERS ====================
