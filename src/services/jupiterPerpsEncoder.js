@@ -242,11 +242,11 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   const positionPda = new PublicKey(positionAddress);
   const collateralPriceAccount = isLong ? DOVE_PRICE_SOL : DOVE_PRICE_USDC;
 
-  // Use decreasePosition4 - only needs discriminator, closes entire position
-  const data = DISCR.decreasePosition4;
-
-  // Need to derive position request PDA
+  // Use createDecreasePositionMarketRequest - keepers will execute
+  // This is similar to how open works
   const counter = 0;
+  
+  // Derive position request PDA
   const positionRequestSeeds = [
     Buffer.from('position_request'),
     positionPda.toBuffer(),
@@ -254,28 +254,41 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
     Buffer.from([isLong ? 1 : 2])
   ];
   const [positionRequest] = PublicKey.findProgramAddressSync(positionRequestSeeds, PERP_PROGRAM_ID);
+
+  // Data: discriminator + collateralUsdDelta + sizeUsdDelta + priceSlippage + jupiterMinimumOut + entirePosition + counter
+  const data = Buffer.concat([
+    DISCR.createDecreasePosition,  // 8 bytes
+    enc64(0), // collateralUsdDelta (0 = return all)
+    enc64(0), // sizeUsdDelta (0 = close entire)
+    enc64(0), // priceSlippage
+    encOption64(null), // jupiterMinimumOut (None)
+    encOptionBool(true), // entirePosition = true
+    enc64(counter) // counter
+  ]);
+
+  // Get position request ATA for the token account that will receive funds
   const positionRequestAta = getATA(MINTS.SOL, positionRequest);
 
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },              // 1. keeper
-      { pubkey: owner, isSigner: true, isWritable: true },              // 2. owner  
-      { pubkey: transferAuthority, isSigner: false, isWritable: false }, // 3. transferAuthority
-      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false },  // 4. perpetuals
-      { pubkey: JLP_POOL, isSigner: false, isWritable: true },          // 5. pool
-      { pubkey: positionRequest, isSigner: false, isWritable: true },   // 6. positionRequest
+      { pubkey: owner, isSigner: true, isWritable: true }, // 1. owner
+      { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 2. receivingAccount
+      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 3. perpetuals
+      { pubkey: JLP_POOL, isSigner: false, isWritable: true }, // 4. pool
+      { pubkey: positionPda, isSigner: false, isWritable: false }, // 5. position (readonly)
+      { pubkey: positionRequest, isSigner: false, isWritable: true }, // 6. positionRequest
       { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 7. positionRequestAta
-      { pubkey: positionPda, isSigner: false, isWritable: true },       // 8. position
-      { pubkey: custody, isSigner: false, isWritable: true },            // 9. custody
+      { pubkey: custody, isSigner: false, isWritable: true }, // 8. custody
+      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 9. custodyTokenAccount
       { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 10. custodyPrices
       { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 11. custodyTwap
-      { pubkey: collateral, isSigner: false, isWritable: true },         // 12. collateralCustody
-      { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 13. collatPrices
-      { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 14. collatTwap
-      { pubkey: collateralVault, isSigner: false, isWritable: true },   // 15. collatTokenAccount
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 16. tokenProgram
+      { pubkey: collateral, isSigner: false, isWritable: true }, // 12. collateralCustody
+      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 13. collateralCustodyTokenAccount
+      { pubkey: owner, isSigner: false, isWritable: false }, // 14. referral
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 15. tokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 16. systemProgram
       { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 17. eventAuthority
       { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 18. program
     ],
