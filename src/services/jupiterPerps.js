@@ -15,6 +15,8 @@ const {
 class JupiterPerpsService {
   constructor() {
     this.connection = new Connection('https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c', 'confirmed');
+    this.jupiterApiKey = process.env.JUPITER_API_KEY;
+    this.jupiterBaseUrl = 'https://api.jup.ag';
     
     // Multiple RPCs for reliability
     this.rpcUrls = [
@@ -140,7 +142,26 @@ class JupiterPerpsService {
     }
   }
 
-  async getPositions() { return []; }
+  async getPositions() {
+    // Try Jupiter Portfolio API first
+    if (this.jupiterApiKey) {
+      try {
+        const response = await fetch(`${this.jupiterBaseUrl}/portfolio/v1/positions/${this.walletAddress}`, {
+          headers: { 'x-api-key': this.jupiterApiKey }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.positions || [];
+        }
+      } catch (e) {
+        console.log('Jupiter Portfolio API error:', e.message);
+      }
+    }
+    
+    // Fallback: return empty (need API key for real positions)
+    return [];
+  }
+  
   async getAccountInfo() { return { wallet: this.walletAddress }; }
   async closePosition() { return { error: 'Not impl' }; }
 }
