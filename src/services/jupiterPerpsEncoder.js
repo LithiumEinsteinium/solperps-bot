@@ -60,12 +60,12 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const collateral = side.toLowerCase() === 'long' ? CUSTODIES[market] : CUSTODIES.USDC;
   
   const isLong = side.toLowerCase() === 'long';
-  const inputMint = isLong ? MINTS.SOL : MINTS.USDC;
-  const fundingAta = isLong ? userSolAta : userUsdcAta;
-  const collateralMint = isLong ? MINTS.SOL : MINTS.USDC;
 
   const userUsdcAta = getATA(MINTS.USDC, owner);
   const userSolAta = getATA(MINTS.SOL, owner);
+  
+  const inputMint = isLong ? MINTS.SOL : MINTS.USDC;
+  const fundingAta = isLong ? userSolAta : userUsdcAta;
 
   // Pool token accounts (vaults)
   const poolUsdcVault = new PublicKey('WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS');
