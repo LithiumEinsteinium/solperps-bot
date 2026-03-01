@@ -19,7 +19,8 @@ A Telegram bot for perpetual trading on Solana with **Jupiter Perps** integratio
 /perp SOL long 10 1   - Open $10, 1x leverage (LONG)
 /perp SOL short 10 1  - Open $10, 1x leverage (SHORT)
 /perppositions        - View open positions with PnL
-/perpsinfo            - Account info
+/perpclose 0         - Close position by index
+/perpsinfo           - Account info
 ```
 
 ### Paper Trading
@@ -69,8 +70,7 @@ PAPER_TRADING=true
 
 ## Limitations
 
-- **Close positions**: Manual for now (close at jup.ag/perps)
-- **TP/SL**: Set manually on Jupiter website
+- **TP/SL**: Set manually on Jupiter website (coming soon)
 - **Markets**: Currently SOL only
 
 ## How It Works

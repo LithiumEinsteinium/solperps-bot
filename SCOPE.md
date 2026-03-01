@@ -36,6 +36,7 @@
 |---------|--------|-------|
 | `/perp` open | ✅ Working | Opens real positions on Solana |
 | `/perppositions` | ✅ Working | Shows positions with PnL, leverage, liquidation |
+| `/perpclose` | ✅ Working | Closes positions! 🎉 |
 | Position tracking | ✅ Working | Via Jupiter Portfolio API |
 | Size calculation | ✅ Fixed | Using raw amounts (not lamports) |
 
