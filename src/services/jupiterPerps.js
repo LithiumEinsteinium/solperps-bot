@@ -260,10 +260,10 @@ class JupiterPerpsService {
       instructions.forEach(instr => tx.add(instr));
       
       // Sign
-      const signedTx = await this.connection.signTransaction(tx, [this.keypair]);
+      tx.sign(this.keypair);
       
       // Send
-      const sig = await this.connection.sendRawTransaction(signedTx.serialize());
+      const sig = await this.connection.sendRawTransaction(tx.serialize());
       console.log('🔴 Close tx sent:', sig);
       
       // Confirm
