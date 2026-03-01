@@ -177,11 +177,40 @@ class JupiterPerpsService {
         
         if (response.ok) {
           const data = await response.json();
-          console.log('🔍 Positions data:', JSON.stringify(data).substring(0, 500));
+          console.log('🔍 Raw response:', JSON.stringify(data).substring(0, 800));
+          
+          // Parse Jupiter Portfolio API response format
+          // Positions are in: elements[].data.isolated.positions[]
+          const positions = [];
+          if (data.elements) {
+            for (const element of data.elements) {
+              if (element.data?.isolated?.positions) {
+                for (const pos of element.data.isolated.positions) {
+                  positions.push({
+                    symbol: 'SOL', // Address So111... = SOL
+                    side: pos.side,
+                    leverage: pos.leverage,
+                    size: pos.sizeValue, // $100
+                    sizeToken: pos.size, // in SOL
+                    entryPrice: pos.entryPrice,
+                    markPrice: pos.markPrice,
+                    pnl: pos.pnlValue,
+                    value: pos.value,
+                    liquidationPrice: pos.liquidationPrice,
+                    collateral: pos.collateralValue,
+                    address: pos.ref
+                  });
+                }
+              }
+            }
+          }
+          
+          console.log('🔍 Parsed positions:', positions);
+          
           // Cache the result
-          this._positionsCache = data.positions || [];
+          this._positionsCache = positions;
           this._positionsCacheTime = now;
-          return this._positionsCache;
+          return positions;
         } else {
           const err = await response.text();
           console.log('🔍 API error:', err);
