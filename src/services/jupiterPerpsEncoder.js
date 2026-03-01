@@ -58,6 +58,11 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const custody = CUSTODIES[market];
   // For LONG positions, collateral = same token (SOL). For SHORT, collateral = USDC
   const collateral = side.toLowerCase() === 'long' ? CUSTODIES[market] : CUSTODIES.USDC;
+  
+  const isLong = side.toLowerCase() === 'long';
+  const inputMint = isLong ? MINTS.SOL : MINTS.USDC;
+  const fundingAta = isLong ? userSolAta : userUsdcAta;
+  const collateralMint = isLong ? MINTS.SOL : MINTS.USDC;
 
   const userUsdcAta = getATA(MINTS.USDC, owner);
   const userSolAta = getATA(MINTS.SOL, owner);
@@ -70,6 +75,8 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
 
   console.log('userUsdcAta:', userUsdcAta.toString());
   console.log('userSolAta:', userSolAta.toString());
+  console.log('fundingAta:', fundingAta.toString());
+  console.log('inputMint:', inputMint.toString());
 
   const instructions = [];
 
@@ -116,14 +123,14 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   )[0];
   
   // Derive position request ATA
-  const positionRequestAta = getATA(MINTS.SOL, positionRequest);
+  const positionRequestAta = getATA(inputMint, positionRequest);
   
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data: createIncData,
     keys: [
       { pubkey: owner, isSigner: true, isWritable: true },             // 0. owner (signer)
-      { pubkey: userUsdcAta, isSigner: false, isWritable: true },      // 1. fundingAccount
+      { pubkey: fundingAta, isSigner: false, isWritable: true },      // 1. fundingAccount
       { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 2. perpetuals
       { pubkey: JLP_POOL, isSigner: false, isWritable: false },       // 3. pool
       { pubkey: positionPda, isSigner: false, isWritable: true },     // 4. position
@@ -131,7 +138,7 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
       { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 6. positionRequestAta
       { pubkey: custody, isSigner: false, isWritable: false },        // 7. custody
       { pubkey: collateral, isSigner: false, isWritable: false },     // 8. collateralCustody
-      { pubkey: MINTS.SOL, isSigner: false, isWritable: false },     // 9. inputMint
+      { pubkey: inputMint, isSigner: false, isWritable: false },     // 9. inputMint
       { pubkey: owner, isSigner: false, isWritable: false },           // 10. referral
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 11. tokenProgram
       { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },    // 12. associatedTokenProgram
@@ -163,7 +170,7 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
       { pubkey: owner, isSigner: true, isWritable: true },             // 1. keeper (signer)
       { pubkey: owner, isSigner: true, isWritable: true },            // 2. apiKeeper (signer) - use owner
       { pubkey: owner, isSigner: true, isWritable: true },            // 3. owner (signer)
-      { pubkey: userUsdcAta, isSigner: false, isWritable: true },     // 4. fundingAccount (USDC)
+      { pubkey: fundingAta, isSigner: false, isWritable: true },     // 4. fundingAccount (USDC)
       { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 5. perpetuals
       { pubkey: JLP_POOL, isSigner: false, isWritable: true },        // 6. pool
       { pubkey: positionPda, isSigner: false, isWritable: true },    // 7. position
