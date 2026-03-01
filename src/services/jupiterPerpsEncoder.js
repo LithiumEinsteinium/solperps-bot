@@ -277,6 +277,5 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   const { blockhash } = await connection.getLatestBlockhash();
   return { instructions, blockhash };
 }
-}
 
 module.exports = { CUSTODIES, MINTS, getATA, buildOpenPositionTransaction, buildClosePositionTransaction };
