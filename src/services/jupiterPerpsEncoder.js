@@ -56,7 +56,8 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const { market, side, collateralDelta, sizeUsdDelta, priceSlippage } = opts;
 
   const custody = CUSTODIES[market];
-  const collateral = CUSTODIES.USDC;
+  // For LONG positions, collateral = same token (SOL). For SHORT, collateral = USDC
+  const collateral = side.toLowerCase() === 'long' ? CUSTODIES[market] : CUSTODIES.USDC;
 
   const userUsdcAta = getATA(MINTS.USDC, owner);
   const userSolAta = getATA(MINTS.SOL, owner);
