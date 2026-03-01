@@ -251,7 +251,7 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
     Buffer.from('position_request'),
     positionPda.toBuffer(),
     enc64(counter),
-    Buffer.from([isLong ? 1 : 2])
+    Buffer.from([2]) // Always use [2] for close request
   ];
   const [positionRequest] = PublicKey.findProgramAddressSync(positionRequestSeeds, PERP_PROGRAM_ID);
 
