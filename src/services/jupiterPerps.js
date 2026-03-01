@@ -89,9 +89,10 @@ class JupiterPerpsService {
         }
       }
       
-      const sizeUSD = new BN(Math.floor(amount * leverage * 1000000));
-      const collateralDelta = new BN(Math.floor(amount * 1000000));
-      const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
+      // Use raw amounts (not lamports) - Jupiter expects actual dollar/token values
+      const sizeUSD = new BN(Math.floor(amount * leverage));  // $ amount
+      const collateralDelta = new BN(Math.floor(amount));     // USDC amount
+      const priceSlippage = new BN(Math.floor(amount * leverage * 0.02)); // 2% slippage
       
       console.log('🔢 Trade params:', { amount, leverage, sizeUSD: sizeUSD.toString(), collateralDelta: collateralDelta.toString() });
       
