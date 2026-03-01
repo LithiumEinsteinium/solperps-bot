@@ -99,7 +99,8 @@ class SolPerpsBot {
     
     // Jupiter Perps (direct on-chain)
     this.jupiterPerps = JupiterPerpsService ? new JupiterPerpsService({
-      rpcUrl: config.rpcUrl
+      rpcUrl: config.rpcUrl,
+      jupiterApiKey: config.jupiterApiKey
     }) : null;
     
     // Price alerts
@@ -340,7 +341,7 @@ class SolPerpsBot {
       
       if (jupPrivateKey) {
         console.log('🪐 Using Jupiter Perps...');
-        await this.jupiterPerps.initialize(jupPrivateKey, { walletAddress: jupWalletAddress });
+        await this.jupiterPerps.initialize(jupPrivateKey);
         
         const result = await this.jupiterPerps.openPosition(symbol, side, amount, leverage);
         return result;
@@ -442,7 +443,7 @@ class SolPerpsBot {
         const jupWalletAddress = this.userWallets.getAddress(chatId);
         if (!jupPrivateKey) return [];
         
-        await this.jupiterPerps.initialize(jupPrivateKey, { walletAddress: jupWalletAddress });
+        await this.jupiterPerps.initialize(jupPrivateKey);
         const positions = await this.jupiterPerps.getPositions();
         
         return positions.map((p, i) => ({
