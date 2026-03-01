@@ -193,7 +193,24 @@ HELIUS_API_KEY=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c
 1. **Drift SDK** - Node 25 compatibility issues with rpc-websockets
 2. **Wallet persistence** - Wallets stored in server file system, lost on redeploy
    - Use `/import` to restore from exported private key
-3. **Jupiter Perps** - Still testing, close to working!
+3. **Position tracking** - Need to fetch from Jupiter API (Portfolio endpoint)
+4. **Size parsing** - $1 at 59x instead of $10 at 5x - unit conversion issue
+
+---
+
+## To Fix
+
+### 1. Position Tracking
+Need to call Jupiter Portfolio API to get real positions:
+```
+GET https://api.jup.ag/portfolio/v1/positions/{wallet}
+```
+Requires API key from portal.jup.ag
+
+### 2. Size/Leverage Calculation
+Currently: amount=10, leverage=5 → $50 size, $10 collat
+Result: $1 at 59x
+Need to debug the unit conversion
 
 ---
 
