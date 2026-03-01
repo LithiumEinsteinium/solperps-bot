@@ -34,7 +34,7 @@ const DISCR = {
 };
 
 function enc64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeUInt8(x, i)); return b; }
-function encI64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeInt8(x, i)); return b; }
+function encI64(v) { const b = Buffer.alloc(8); const arr = new BN(v).toTwos(64).toArray('le', 8); arr.forEach((x, i) => b.writeUInt8(x, i)); return b; }
 function encSide(s) { return Buffer.from([s.toLowerCase() === 'long' ? 1 : 2]); }
 // Option<u64> encoding: 1 byte variant (0=None, 1=Some) + 8 bytes value if Some
 function encOption64(v) { if (v === null || v === undefined || v === 0n) return Buffer.from([0]); return Buffer.concat([Buffer.from([1]), enc64(v)]); }
