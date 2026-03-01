@@ -414,8 +414,8 @@ class SolPerpsBot {
         return { success: false, error: 'Position not found' };
       }
       
-      // Close the position
-      const result = await this.jupiterPerps.closePositionByAddress(position.positionAddress);
+      // Close the position - use address since positionAddress may not exist
+      const result = await this.jupiterPerps.closePositionByAddress(position.address || position.positionAddress, position.side);
       return result;
     }
     
