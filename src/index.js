@@ -399,29 +399,7 @@ class SolPerpsBot {
       };
     }
     
-    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
-    
-    // Debug: log which wallet we're using
-    const privateKey = this.getUserWalletPrivateKey(chatId);
-    if (!privateKey) return { success: false, error: 'No wallet - import one first with /import KEY' };
-    
-    const walletAddress = this.userWallets.getAddress(chatId);
-    console.log('🔑 Using wallet for perp:', walletAddress);
-    
-    // Reinitialize if needed
-    const needsInit = !this.perps.initialized || 
-                      this.perps.isTestnet !== isTestnet ||
-                      this.perps.lastWalletKey !== privateKey;
-    
-    if (needsInit) {
-      const initResult = await this.perps.initialize(privateKey, { testnet: isTestnet, walletAddress });
-      if (!initResult.success) {
-        return { success: false, error: 'Init failed: ' + initResult.error };
-      }
-      this.perps.lastWalletKey = privateKey;
-    }
-    
-    // Use Jupiter Perps for real trading
+    // Use Jupiter Perps for real trading FIRST
     if (this.jupiterPerps) {
       const jupPrivateKey = this.getUserWalletPrivateKey(chatId);
       if (!jupPrivateKey) return { success: false, error: 'No wallet' };
@@ -440,6 +418,9 @@ class SolPerpsBot {
       const result = await this.jupiterPerps.closePositionByAddress(position.positionAddress);
       return result;
     }
+    
+    // Fallback to Drift only if no Jupiter
+    if (!this.perps) return { success: false, error: 'Perpetuals not available' };
     
     return await this.perps.closePosition(positionIndex);
   }
