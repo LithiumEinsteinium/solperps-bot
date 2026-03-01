@@ -325,7 +325,9 @@ Mode: ${result.mode.toUpperCase()}`;
           if (balance.error) {
             this.sendMessage(chatId, `❌ ${balance.error}`);
           } else {
-            this.sendMessage(chatId, `⛓️ *On-Chain Balance*\n\nSOL: ${balance.sol?.toFixed(4) || 0}\nUSDC: ${balance.usdc?.toFixed(2) || 0}\n\nUse /deposit to add funds.`, { parse_mode: 'Markdown' });
+            const solBal = Number(balance.sol) || 0;
+            const usdcBal = Number(balance.usdc) || 0;
+            this.sendMessage(chatId, `⛓️ *On-Chain Balance*\n\nSOL: ${solBal.toFixed(4)}\nUSDC: ${usdcBal.toFixed(2)}\n\nUse /deposit to add funds.`, { parse_mode: 'Markdown' });
           }
         } catch (e) {
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
