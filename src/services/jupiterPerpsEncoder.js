@@ -46,8 +46,10 @@ function getATA(mint, owner) {
 }
 
 function derivePosPda(owner, pool, custody, collateral, side) {
+  // Side must be [1] for long, [2] for short (bytes, not strings!)
+  const sideBytes = Buffer.from([side.toLowerCase() === 'long' ? 1 : 2]);
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('position'), owner.toBuffer(), pool.toBuffer(), custody.toBuffer(), collateral.toBuffer(), Buffer.from(side.toLowerCase() === 'long' ? 'long' : 'short')],
+    [Buffer.from('position'), owner.toBuffer(), pool.toBuffer(), custody.toBuffer(), collateral.toBuffer(), sideBytes],
     PERP_PROGRAM_ID
   )[0];
 }
@@ -115,10 +117,11 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     encI64(counter)                   // counter (8 bytes)
   ]);
   
-  // Derive position request PDA
-  const POS_REQ_SEED = Buffer.from('position_request');
+  // Position request PDA: uses position address + counter + side
+  const sideBytes = Buffer.from([side.toLowerCase() === 'long' ? 1 : 2]);
+  const counter = 0n; // Fixed counter for now
   const positionRequest = PublicKey.findProgramAddressSync(
-    [POS_REQ_SEED, owner.toBuffer(), custody.toBuffer(), collateral.toBuffer(), Buffer.from(side.toLowerCase() === 'long' ? 'long' : 'short')],
+    [Buffer.from('position_request'), positionPda.toBuffer(), enc64(counter), sideBytes],
     PERP_PROGRAM_ID
   )[0];
   
