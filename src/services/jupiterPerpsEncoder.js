@@ -119,7 +119,6 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   
   // Position request PDA: uses position address + counter + side
   const sideBytes = Buffer.from([side.toLowerCase() === 'long' ? 1 : 2]);
-  const counter = 0n; // Fixed counter for now
   const positionRequest = PublicKey.findProgramAddressSync(
     [Buffer.from('position_request'), positionPda.toBuffer(), enc64(counter), sideBytes],
     PERP_PROGRAM_ID
