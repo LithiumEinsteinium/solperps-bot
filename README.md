@@ -1,100 +1,103 @@
 # Solana Perps Trading Bot
 
-A comprehensive Solana perpetual trading bot with Jupiter Perps integration.
+A comprehensive Solana perpetual trading bot with **Jupiter Perps** integration.
 
-## Features
+## 🎉 What's Working
 
-1. **Connect to Jupiter Perps** - Open/close positions
-2. **Basic Trading** - Long/short SOL or other tokens
-3. **TP/SL** - Take profit / stop loss automation
-4. **Position Management** - View and manage open positions
-5. **Auto-Trading** - Based on signals (MA crossover, RSI, external)
-6. **Balance Check** - View wallet balance
-7. **Transfers** - Transfer SOL/tokens
+- **Real Jupiter Perps positions** - Open SOL long/short on mainnet!
+- Telegram bot interface
+- Paper trading mode
+- Wallet management (create, import, export)
+- Balance checking (SOL + USDC)
+- Deposits and withdrawals
 
-## Installation
+## Commands
 
-```bash
-npm install
+### Trading (Real - Jupiter Perps)
+```
+/perp SOL long 10 5   - Open 10 USDC, 5x leverage (LONG)
+/perp SOL short 10 5  - Open 10 USDC, 5x leverage (SHORT)
+/perppositions        - View open Jupiter positions
+/perpsinfo            - Account info
 ```
 
-## Configuration
+### Trading (Paper)
+```
+/long SOL 10    - Open paper long
+/short SOL 5   - Open paper short  
+/close 1       - Close position by index
+/positions     - View open positions
+```
 
-Create a `.env` file:
+### Price & Wallet
+```
+/price           - SOL price
+/price BTC      - Any token price
+/wallet         - Your bot wallet address
+/export         - Export private key
+/import KEY     - Import wallet
+/deposit        - Get deposit address
+/onchain        - Check SOL + USDC balance
+/withdraw ADDR AMT - Withdraw SOL
+```
+
+### Info
+```
+/status    - Bot status
+/help      - Show this help
+```
+
+## Setup
+
+### Environment Variables
 
 ```env
-# Wallet
-WALLET_PRIVATE_KEY=[{"...":"..."}]
+# Required
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+HELIUS_API_KEY=your_helius_api_key
 
-# RPC
-RPC_URL=https://api.mainnet-beta.solana.com
-
-# Telegram (optional)
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-
-# Bot Settings
+# Optional (defaults provided)
+JUPITER_API_KEY=your_jupiter_api_key  # For position tracking
 PAPER_TRADING=true
-AUTO_TRADE=false
-POSITION_SIZE=10
-LEVERAGE=1
-SYMBOL=SOL
-
-# Strategy (ma-cross, rsi, signal)
-STRATEGY=ma-cross
-AUTO_EXECUTE=false
 ```
 
-## Usage
+### Get API Keys
 
-```bash
-# Start the bot
-npm start
+1. **Helius** (RPC): https://helius.xyz
+2. **Jupiter** (positions): https://portal.jup.ag
+
+## How It Works
+
+1. Bot creates a wallet for each user
+2. User deposits SOL/USDC to their bot wallet
+3. Use `/perp` commands to open real positions on Jupiter Perps
+4. Keepers execute the positions on-chain
+
+## Architecture
+
+```
+Telegram Bot → Node.js → Jupiter Perps (Solana Mainnet)
+                     → Helius RPC
+                     → Jupiter API (portfolio)
 ```
 
-## Telegram Commands
+## Files
 
-| Command | Description |
-|---------|-------------|
-| `/long SYMBOL SIZE` | Open long position |
-| `/short SYMBOL SIZE` | Open short position |
-| `/close ID` | Close position |
-| `/positions` | View open positions |
-| `/balance` | Check balance |
-| `/tpsl ID TP SL` | Set TP/SL % |
-| `/transfer ADDR AMT` | Transfer funds |
-| `/status` | Bot status |
-| `/help` | Show help |
-
-## Trading Modes
-
-- **Paper Trading** (`PAPER_TRADING=true`): Simulates all trades, no real money
-- **Live Trading**: Executes real trades on Solana
+| File | Purpose |
+|------|---------|
+| `src/index.js` | Main bot |
+| `src/handlers/telegram.js` | Telegram commands |
+| `src/services/jupiterPerps.js` | Jupiter Perps integration |
+| `src/services/jupiterPerpsEncoder.js` | Transaction encoder |
+| `src/services/onChainTrader.js` | On-chain trades |
 
 ## Deployment
 
-### Render
-1. Connect your GitHub repo to Render
-2. Set environment variables
-3. Deploy as a web service
-
-### Local
+Deploy to Render.com:
 ```bash
-npm start
-```
-
-## Project Structure
-
-```
-src/
-├── index.js              # Main bot entry
-├── services/
-│   ├── jupiter.js       # Jupiter Perps integration
-│   └── positionManager.js # Position tracking
-├── strategies/
-│   └── signalEngine.js  # Auto-trading strategies
-└── handlers/
-    └── telegram.js      # Telegram commands
+# Push to GitHub, connect to Render
+# Set environment variables
+# Deploy!
 ```
 
 ## License
