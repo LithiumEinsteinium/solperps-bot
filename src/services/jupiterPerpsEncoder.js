@@ -289,4 +289,4 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   return { instructions, blockhash };
 }
 
-module.exports = { CUSTODIES, MINTS, buildOpenPositionTransaction, buildClosePositionTransaction };
+module.exports = { CUSTODIES, MINTS, getATA, buildOpenPositionTransaction, buildClosePositionTransaction };

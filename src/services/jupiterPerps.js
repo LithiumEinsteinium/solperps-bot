@@ -9,6 +9,7 @@ const BN = require('bn.js');
 const { 
   CUSTODIES, 
   MINTS,
+  getATA,
   buildOpenPositionTransaction,
   buildClosePositionTransaction
 } = require('./jupiterPerpsEncoder');
