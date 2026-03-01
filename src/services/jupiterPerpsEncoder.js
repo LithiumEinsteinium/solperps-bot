@@ -230,6 +230,7 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   const poolSolVault = new PublicKey('BUvduFTd2sWFagCunBPLupG8fBTJqweLw9DuhruNFSCm');
   const poolUsdcVault = new PublicKey('WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS');
   const collateralVault = isLong ? poolSolVault : poolUsdcVault;
+  const collateralPriceAccount = isLong ? DOVE_PRICE_SOL : DOVE_PRICE_USDC;
 
   // Position PDA (same derivation as open)
   const custody = CUSTODIES.SOL;
@@ -290,8 +291,8 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
       { pubkey: positionRequest, isSigner: false, isWritable: true },   // 6. positionRequest
       { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 7. positionRequestAta
       { pubkey: custodyAccount, isSigner: false, isWritable: false }, // 8. custody (readonly!)
-      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 9. custodyDovesPriceAccount
-      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 10. custodyPythnetPriceAccount
+      { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 9. custodyDovesPriceAccount
+      { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 10. custodyPythnetPriceAccount
       { pubkey: collateralCustody, isSigner: false, isWritable: false }, // 11. collateralCustody (readonly!)
       { pubkey: MINTS.SOL, isSigner: false, isWritable: false },      // 12. desiredMint
       { pubkey: owner, isSigner: false, isWritable: false },          // 13. referral
