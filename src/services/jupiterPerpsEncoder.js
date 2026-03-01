@@ -275,23 +275,31 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   // 12. Event Authority
   // 13. Program
 
+  const custodyAccount = CUSTODIES.SOL;
+  const collateralCustody = isLong ? CUSTODIES.SOL : CUSTODIES.USDC;
+
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },            // 1. keeper (signer)
-      { pubkey: owner, isSigner: false, isWritable: true },          // 2. owner
-      { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 3. ownerAta
-      { pubkey: JLP_POOL, isSigner: false, isWritable: true },        // 4. pool
-      { pubkey: positionRequest, isSigner: false, isWritable: true }, // 5. positionRequest
-      { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 6. positionRequestAta
-      { pubkey: new PublicKey(positionAddress), isSigner: false, isWritable: false }, // 7. position
-      { pubkey: MINTS.SOL, isSigner: false, isWritable: false },    // 8. mint
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 9. tokenProgram
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 10. systemProgram
-      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },  // 11. associatedTokenProgram
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 12. eventAuthority
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 13. program
+      { pubkey: owner, isSigner: true, isWritable: true },              // 1. owner (signer)
+      { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 2. receivingAccount
+      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 3. perpetuals (readonly!)
+      { pubkey: JLP_POOL, isSigner: false, isWritable: false },        // 4. pool (readonly!)
+      { pubkey: new PublicKey(positionAddress), isSigner: false, isWritable: false }, // 5. position (readonly!)
+      { pubkey: positionRequest, isSigner: false, isWritable: true },   // 6. positionRequest
+      { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 7. positionRequestAta
+      { pubkey: custodyAccount, isSigner: false, isWritable: false }, // 8. custody (readonly!)
+      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 9. custodyDovesPriceAccount
+      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 10. custodyPythnetPriceAccount
+      { pubkey: collateralCustody, isSigner: false, isWritable: false }, // 11. collateralCustody (readonly!)
+      { pubkey: MINTS.SOL, isSigner: false, isWritable: false },      // 12. desiredMint
+      { pubkey: owner, isSigner: false, isWritable: false },          // 13. referral
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 14. tokenProgram
+      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },    // 15. associatedTokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 16. systemProgram
+      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 17. eventAuthority
+      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 18. program
     ],
   }));
 
