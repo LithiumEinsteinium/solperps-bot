@@ -49,7 +49,11 @@ function encSide(s) { return Buffer.from([s.toLowerCase() === 'long' ? 1 : 2]); 
 // Option<u64> encoding: 1 byte variant (0=None, 1=Some) + 8 bytes value if Some
 function encOption64(v) { if (v === null || v === undefined || v === 0n) return Buffer.from([0]); return Buffer.concat([Buffer.from([1]), enc64(v)]); }
 // Option<bool> encoding: 0=None, 1=Some(true), 2=Some(false)
-function encOptionBool(b) { return b ? Buffer.from([1]) : Buffer.from([2]); }
+function encOptionBool(b) { 
+  // For Option<bool>, it's variant (1 byte) + value (1 byte)
+  // 0 = None, 1 = Some(true), 2 = Some(false)
+  return b ? Buffer.from([1, 1]) : Buffer.from([1, 0]); 
+}
 
 function getATA(mint, owner) {
   return PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()], ATA_PROGRAM)[0];
