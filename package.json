@@ -12,6 +12,7 @@
     "@coral-xyz/anchor": "^0.28.0",
     "@drift-labs/sdk": "2.155.0",
     "@jup-ag/api": "^6.0.48",
+    "@solana/kit": "^2.3.0",
     "@solana/web3.js": "^1.90.0",
     "axios": "^1.6.5",
     "bn.js": "^5.2.3",

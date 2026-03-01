@@ -1,5 +1,7 @@
 const { Connection, PublicKey, TransactionInstruction, SystemProgram, ComputeBudgetProgram } = require('@solana/web3.js');
 const BN = require('bn.js');
+// Generated instruction builders from Codama (use these instead of hand-rolling!)
+// import { getInstantIncreasePositionInstruction, getIncreasePositionPreSwapInstruction } from '../generated/jupiter_idl-client/instructions';
 
 const PERP_PROGRAM_ID = new PublicKey('PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu');
 const JLP_POOL = new PublicKey('5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq');
@@ -23,15 +25,19 @@ const DOVE_PRICE_USDC = new PublicKey('6Jp2xZUTWdDD2ZyUPRzeMdc6AFQ5K3pFgZxk2Eijf
 const DOVE_PRICE_SOL = new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh');
 
 const DISCR = {
-  setTokenLedger: Buffer.from([0x7c, 0x2f, 0x27, 0x32, 0xf5, 0x9e, 0x01, 0xa0]),
-  // PreSwap: 16 bytes (2 discriminators)
-  preSwap: Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28, 0xfa, 0x3f, 0x5b, 0xe7, 0xe5, 0xcb, 0x1f, 0x53]),
-  // InstantIncreasePosition: 16 bytes (2 discriminators)
-  instantIncrease: Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24, 0x41, 0x86, 0x90, 0x3c, 0x90, 0x41, 0x46, 0x09]),
+  // CORRECT discriminators from Codama-generated IDL
+  setTokenLedger: Buffer.from([0xe4, 0x55, 0xb9, 0x70, 0x4e, 0x4f, 0x4d, 0x02]),
+  // CORRECT PreSwap: [26, 136, 225, 217, 22, 21, 83, 20]
+  preSwap: Buffer.from([0x1a, 0x88, 0xe1, 0xd9, 0x16, 0x15, 0x53, 0x14]),
+  // CORRECT InstantIncreasePosition from Codama: [164, 126, 68, 182, 223, 166, 64, 183]
+  instantIncrease: Buffer.from([0xa4, 0x7e, 0x44, 0xb6, 0xdf, 0xa6, 0x40, 0xb7]),
 };
 
 function enc64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeUInt8(x, i)); return b; }
+function encI64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeInt8(x, i)); return b; }
 function encSide(s) { return Buffer.from([s.toLowerCase() === 'long' ? 1 : 2]); }
+// Option<u64> encoding: 1 byte variant (0=None, 1=Some) + 8 bytes value if Some
+function encOption64(v) { if (v === null || v === undefined || v === 0n) return Buffer.from([0]); return Buffer.concat([Buffer.from([1]), enc64(v)]); }
 
 function getATA(mint, owner) {
   return PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()], ATA_PROGRAM)[0];
@@ -112,8 +118,17 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     ],
   }));
   
-  // Step 6: InstantIncreasePosition (same accounts essentially)
-  const instantData = Buffer.concat([DISCR.instantIncrease, enc64(sizeUsdDelta), enc64(collateralDelta), encSide(side), enc64(priceSlippage)]);
+  // Step 6: InstantIncreasePosition
+  // Data: discriminator(8) + sizeUsdDelta(8) + collateralTokenDelta(Option<u64>, 1+8) + side(1) + priceSlippage(8) + requestTime(8)
+  const requestTime = Math.floor(Date.now() / 1000);
+  const instantData = Buffer.concat([
+    DISCR.instantIncrease,           // 8 bytes
+    enc64(sizeUsdDelta),              // 8 bytes
+    encOption64(collateralDelta),     // 1 + 8 bytes (Option<u64>)
+    encSide(side),                    // 1 byte
+    enc64(priceSlippage),             // 8 bytes
+    encI64(requestTime)               // 8 bytes
+  ]);
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data: instantData,
