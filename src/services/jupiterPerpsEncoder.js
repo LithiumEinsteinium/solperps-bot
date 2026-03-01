@@ -72,6 +72,9 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   // Pool token accounts (vaults)
   const poolUsdcVault = new PublicKey('WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS');
   const poolSolVault = new PublicKey('BUvduFTd2sWFagCunBPLupG8fBTJqweLw9DuhruNFSCm');
+  const collateralVault = isLong ? poolSolVault : poolUsdcVault;
+  const collateralPrice = isLong ? DOVE_PRICE_SOL : DOVE_PRICE_USDC;
+  const collateralMint = isLong ? MINTS.SOL : MINTS.USDC;
 
   const positionPda = derivePosPda(owner, JLP_POOL, custody, collateral, side);
 
@@ -219,10 +222,10 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
       { pubkey: custody, isSigner: false, isWritable: true },         // 8. custody (SOL)
       { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 9. custodyDovesPriceAccount
       { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 10. custodyPythnetPriceAccount
-      { pubkey: collateral, isSigner: false, isWritable: true },       // 11. collateralCustody (USDC)
-      { pubkey: DOVE_PRICE_USDC, isSigner: false, isWritable: false }, // 12. collateralCustodyDovesPriceAccount
-      { pubkey: DOVE_PRICE_USDC, isSigner: false, isWritable: false }, // 13. collateralCustodyPythnetPriceAccount
-      { pubkey: poolUsdcVault, isSigner: false, isWritable: true },    // 14. collateralCustodyTokenAccount
+      { pubkey: collateral, isSigner: false, isWritable: true },       // 11. collateralCustody 
+      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 12. collateralCustodyDovesPriceAccount
+      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 13. collateralCustodyPythnetPriceAccount
+      { pubkey: collateralVault, isSigner: false, isWritable: true },    // 14. collateralCustodyTokenAccount
       { pubkey: TOKEN_LEDGER, isSigner: false, isWritable: false },    // 15. tokenLedger
       { pubkey: owner, isSigner: false, isWritable: false },           // 16. referral (use owner)
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 17. tokenProgram
