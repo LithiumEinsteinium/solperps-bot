@@ -272,10 +272,11 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
       { pubkey: collateralVault, isSigner: false, isWritable: true },  // 15. collatTokenAccount
       { pubkey: MINTS.SOL, isSigner: false, isWritable: false },       // 16. desiredMint (SOL for long)
       { pubkey: owner, isSigner: false, isWritable: false },           // 17. referral
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 17. tokenProgram
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 18. systemProgram
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false },  // 19. eventAuthority
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false },  // 20. program
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 18. tokenProgram
+      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },    // 19. associatedTokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 20. systemProgram
+      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false },  // 21. eventAuthority
+      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false },  // 22. program
     ],
   }));
 
