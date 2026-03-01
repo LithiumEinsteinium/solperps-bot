@@ -43,9 +43,9 @@ function getATA(mint, owner) {
   return PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()], ATA_PROGRAM)[0];
 }
 
-function derivePosPda(owner, custody, collateral, side) {
+function derivePosPda(owner, pool, custody, collateral, side) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('position'), owner.toBuffer(), custody.toBuffer(), collateral.toBuffer(), Buffer.from(side.toLowerCase() === 'long' ? 'long' : 'short')],
+    [Buffer.from('position'), owner.toBuffer(), pool.toBuffer(), custody.toBuffer(), collateral.toBuffer(), Buffer.from(side.toLowerCase() === 'long' ? 'long' : 'short')],
     PERP_PROGRAM_ID
   )[0];
 }
@@ -63,7 +63,7 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   const poolUsdcVault = new PublicKey('WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS');
   const poolSolVault = new PublicKey('BUvduFTd2sWFagCunBPLupG8fBTJqweLw9DuhruNFSCm');
 
-  const positionPda = derivePosPda(owner, custody, collateral, side);
+  const positionPda = derivePosPda(owner, JLP_POOL, custody, collateral, side);
 
   console.log('userUsdcAta:', userUsdcAta.toString());
   console.log('userSolAta:', userSolAta.toString());
