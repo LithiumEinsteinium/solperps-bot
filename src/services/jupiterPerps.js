@@ -93,6 +93,8 @@ class JupiterPerpsService {
       const collateralDelta = new BN(Math.floor(amount * 1000000));
       const priceSlippage = new BN(Math.floor(amount * leverage * 1000000 * 2));
       
+      console.log('🔢 Trade params:', { amount, leverage, sizeUSD: sizeUSD.toString(), collateralDelta: collateralDelta.toString() });
+      
       // Use USDC as collateral for both long and short
       const collateralMint = MINTS.USDC;
 
