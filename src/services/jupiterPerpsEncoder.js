@@ -84,13 +84,13 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 4: SetTokenLedger (with correct discriminator!)
+  // Step 4: SetTokenLedger (no owner signer - just the PDA and token account)
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data: DISCR.setTokenLedger,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },
-      { pubkey: userSolAta, isSigner: false, isWritable: true },
+      { pubkey: userSolAta, isSigner: false, isWritable: true },  // Token Ledger PDA
+      { pubkey: userSolAta, isSigner: false, isWritable: true },  // Token Account (same for sync)
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     ],
   }));
