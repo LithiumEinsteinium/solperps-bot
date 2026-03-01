@@ -1,10 +1,11 @@
 # Solana Perps Trading Bot
 
-A comprehensive Solana perpetual trading bot with **Jupiter Perps** integration.
+A Telegram bot for perpetual trading on Solana with **Jupiter Perps** integration.
 
 ## 🎉 What's Working
 
 - **Real Jupiter Perps positions** - Open SOL long/short on mainnet!
+- **Position tracking** - View open positions with PnL, leverage, liquidation price
 - Telegram bot interface
 - Paper trading mode
 - Wallet management (create, import, export)
@@ -13,20 +14,20 @@ A comprehensive Solana perpetual trading bot with **Jupiter Perps** integration.
 
 ## Commands
 
-### Trading (Real - Jupiter Perps)
+### Real Trading (Jupiter Perps)
 ```
-/perp SOL long 10 5   - Open 10 USDC, 5x leverage (LONG)
-/perp SOL short 10 5  - Open 10 USDC, 5x leverage (SHORT)
-/perppositions        - View open Jupiter positions
+/perp SOL long 10 1   - Open $10, 1x leverage (LONG)
+/perp SOL short 10 1  - Open $10, 1x leverage (SHORT)
+/perppositions        - View open positions with PnL
 /perpsinfo            - Account info
 ```
 
-### Trading (Paper)
+### Paper Trading
 ```
 /long SOL 10    - Open paper long
 /short SOL 5   - Open paper short  
-/close 1       - Close position by index
-/positions     - View open positions
+/close 1       - Close position
+/positions     - View all positions
 ```
 
 ### Price & Wallet
@@ -34,7 +35,7 @@ A comprehensive Solana perpetual trading bot with **Jupiter Perps** integration.
 /price           - SOL price
 /price BTC      - Any token price
 /wallet         - Your bot wallet address
-/export         - Export private key
+/export         - Export private key (Phantom-compatible)
 /import KEY     - Import wallet
 /deposit        - Get deposit address
 /onchain        - Check SOL + USDC balance
@@ -44,7 +45,7 @@ A comprehensive Solana perpetual trading bot with **Jupiter Perps** integration.
 ### Info
 ```
 /status    - Bot status
-/help      - Show this help
+/help      - Show help
 ```
 
 ## Setup
@@ -56,7 +57,7 @@ A comprehensive Solana perpetual trading bot with **Jupiter Perps** integration.
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 HELIUS_API_KEY=your_helius_api_key
 
-# Optional (defaults provided)
+# Optional
 JUPITER_API_KEY=your_jupiter_api_key  # For position tracking
 PAPER_TRADING=true
 ```
@@ -64,7 +65,13 @@ PAPER_TRADING=true
 ### Get API Keys
 
 1. **Helius** (RPC): https://helius.xyz
-2. **Jupiter** (positions): https://portal.jup.ag
+2. **Jupiter** (positions): https://portal.jup.ag (free)
+
+## Limitations
+
+- **Close positions**: Manual for now (close at jup.ag/perps)
+- **TP/SL**: Set manually on Jupiter website
+- **Markets**: Currently SOL only
 
 ## How It Works
 
@@ -72,13 +79,14 @@ PAPER_TRADING=true
 2. User deposits SOL/USDC to their bot wallet
 3. Use `/perp` commands to open real positions on Jupiter Perps
 4. Keepers execute the positions on-chain
+5. Use `/perppositions` to track PnL
 
 ## Architecture
 
 ```
 Telegram Bot → Node.js → Jupiter Perps (Solana Mainnet)
                      → Helius RPC
-                     → Jupiter API (portfolio)
+                     → Jupiter API (portfolio/positions)
 ```
 
 ## Files
@@ -89,7 +97,6 @@ Telegram Bot → Node.js → Jupiter Perps (Solana Mainnet)
 | `src/handlers/telegram.js` | Telegram commands |
 | `src/services/jupiterPerps.js` | Jupiter Perps integration |
 | `src/services/jupiterPerpsEncoder.js` | Transaction encoder |
-| `src/services/onChainTrader.js` | On-chain trades |
 
 ## Deployment
 
