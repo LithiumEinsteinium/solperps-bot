@@ -280,17 +280,15 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
       { pubkey: positionPda, isSigner: false, isWritable: false }, // 5. position
       { pubkey: positionRequest, isSigner: false, isWritable: true }, // 6. positionRequest
       { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 7. positionRequestAta
-      { pubkey: custody, isSigner: false, isWritable: true }, // 8. custody (PDA)
-      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 9. custodyTokenAccount (vault)
-      { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 10. custodyPrices
-      { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 11. custodyTwap
-      { pubkey: custody, isSigner: false, isWritable: true }, // 12. collateralCustody (PDA - same as custody for long)
-      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 13. collateralCustodyTokenAccount (vault)
-      { pubkey: owner, isSigner: false, isWritable: false }, // 14. referral
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 15. tokenProgram
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 16. systemProgram
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 17. eventAuthority
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 18. program
+      { pubkey: custody, isSigner: false, isWritable: false }, // 8. custody (PDA)
+      { pubkey: collateral, isSigner: false, isWritable: false }, // 9. collateralCustody (PDA)
+      { pubkey: MINTS.SOL, isSigner: false, isWritable: false }, // 10. desiredMint
+      { pubkey: owner, isSigner: false, isWritable: false }, // 11. referral
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 12. tokenProgram
+      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false }, // 13. associatedTokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 14. systemProgram
+      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 15. eventAuthority
+      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 16. program
     ],
   }));
 
