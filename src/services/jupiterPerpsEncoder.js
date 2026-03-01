@@ -31,6 +31,8 @@ const DISCR = {
   preSwap: Buffer.from([0x1a, 0x88, 0xe1, 0xd9, 0x16, 0x15, 0x53, 0x14]),
   // CORRECT InstantIncreasePosition from Codama: [164, 126, 68, 182, 223, 166, 64, 183]
   instantIncrease: Buffer.from([0xa4, 0x7e, 0x44, 0xb6, 0xdf, 0xa6, 0x40, 0xb7]),
+  // CORRECT createIncreasePositionMarketRequest: [184, 85, 199, 24, 105, 171, 156, 56]
+  createIncreasePosition: Buffer.from([0xb8, 0x55, 0xc7, 0x18, 0x69, 0xab, 0x9c, 0x38]),
 };
 
 function enc64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeUInt8(x, i)); return b; }
@@ -92,8 +94,53 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
 
-  // Skip PreSwap - go directly to InstantIncreasePosition
-  // Step 6: InstantIncreasePosition
+  // Step 5: CreateIncreasePositionMarketRequest - creates the position account first
+  // Data: discriminator(8) + sizeUsdDelta(8) + collateralTokenDelta(8) + side(1) + priceSlippage(8) + jupiterMinimumOut(Option<u64>, 1+8) + counter(8)
+  const counter = 0n;
+  const createIncData = Buffer.concat([
+    DISCR.createIncreasePosition,     // 8 bytes
+    enc64(sizeUsdDelta),              // 8 bytes
+    enc64(collateralDelta),           // 8 bytes  
+    encSide(side),                    // 1 byte
+    enc64(priceSlippage),             // 8 bytes
+    encOption64(0n),                  // jupiterMinimumOut (None)
+    encI64(counter)                   // counter (8 bytes)
+  ]);
+  
+  // Derive position request PDA
+  const POS_REQ_SEED = Buffer.from('position_request');
+  const positionRequest = PublicKey.findProgramAddressSync(
+    [POS_REQ_SEED, owner.toBuffer(), custody.toBuffer(), collateral.toBuffer(), Buffer.from(side.toLowerCase() === 'long' ? 'long' : 'short')],
+    PERP_PROGRAM_ID
+  )[0];
+  
+  // Derive position request ATA
+  const positionRequestAta = getATA(MINTS.SOL, positionRequest);
+  
+  instructions.push(new TransactionInstruction({
+    programId: PERP_PROGRAM_ID,
+    data: createIncData,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },             // 0. owner (signer)
+      { pubkey: userUsdcAta, isSigner: false, isWritable: true },      // 1. fundingAccount
+      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 2. perpetuals
+      { pubkey: JLP_POOL, isSigner: false, isWritable: false },       // 3. pool
+      { pubkey: positionPda, isSigner: false, isWritable: true },     // 4. position
+      { pubkey: positionRequest, isSigner: false, isWritable: true }, // 5. positionRequest
+      { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 6. positionRequestAta
+      { pubkey: custody, isSigner: false, isWritable: false },        // 7. custody
+      { pubkey: collateral, isSigner: false, isWritable: false },     // 8. collateralCustody
+      { pubkey: MINTS.SOL, isSigner: false, isWritable: false },     // 9. inputMint
+      { pubkey: owner, isSigner: false, isWritable: false },           // 10. referral
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 11. tokenProgram
+      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },    // 12. associatedTokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 13. systemProgram
+      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 14. eventAuthority
+      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 15. program
+    ],
+  }));
+
+  // Step 6: InstantIncreasePosition - now position exists
   // Data: discriminator(8) + sizeUsdDelta(8) + collateralTokenDelta(Option<u64>, 1+8) + side(1) + priceSlippage(8) + requestTime(8)
   const requestTime = Math.floor(Date.now() / 1000);
   const instantData = Buffer.concat([
