@@ -214,9 +214,9 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
 
   const instructions = [];
   
-  // Compute budget
-  instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 77655 }));
-  instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 170097 }));
+  // Compute budget - use same as open
+  instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }));
+  instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10000 }));
 
   const userSolAta = receivingAta || getATA(MINTS.SOL, owner);
   const userUsdcAta = getATA(MINTS.USDC, owner);
@@ -247,8 +247,16 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   // Position request ATA (temporary token account)
   const positionRequestAta = getATA(MINTS.SOL, positionRequest);
 
-  // ClosePositionRequest has NO data - just discriminator
-  const data = DISCR.closePositionRequest;
+  // Use createDecreasePositionMarketRequest (keeper model like open)
+  const data = Buffer.concat([
+    DISCR.createDecreasePosition,      // 8 bytes
+    enc64(0),                           // collateralUsdDelta
+    enc64(0),                           // sizeUsdDelta (0 = close entire)
+    enc64(0),                           // priceSlippage
+    encOption64(null),                  // jupiterMinimumOut
+    Buffer.from([1]),                  // entirePosition = true
+    enc64(counter)                     // counter
+  ]);
 
   // Keys from your working tx:
   // 1. Keeper (signer) - use owner
