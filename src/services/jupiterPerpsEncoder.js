@@ -193,47 +193,9 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     ],
   }));
 
-  // Step 6: InstantIncreasePosition - now position exists
-  // Data: discriminator(8) + sizeUsdDelta(8) + collateralTokenDelta(Option<u64>, 1+8) + side(1) + priceSlippage(8) + requestTime(8)
-  const requestTime = Math.floor(Date.now() / 1000);
-  const instantData = Buffer.concat([
-    DISCR.instantIncrease,           // 8 bytes
-    enc64(sizeUsdDelta),              // 8 bytes
-    encOption64(collateralDelta),     // 1 + 8 bytes (Option<u64>)
-    encSide(side),                    // 1 byte
-    enc64(priceSlippage),             // 8 bytes
-    encI64(requestTime)               // 8 bytes
-  ]);
-  
-  // Token Ledger PDA
-  const TOKEN_LEDGER = new PublicKey('J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW');
-  
-  instructions.push(new TransactionInstruction({
-    programId: PERP_PROGRAM_ID,
-    data: instantData,
-    keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },             // 1. keeper (signer)
-      { pubkey: owner, isSigner: true, isWritable: true },            // 2. apiKeeper (signer) - use owner
-      { pubkey: owner, isSigner: true, isWritable: true },            // 3. owner (signer)
-      { pubkey: fundingAta, isSigner: false, isWritable: true },     // 4. fundingAccount (USDC)
-      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 5. perpetuals
-      { pubkey: JLP_POOL, isSigner: false, isWritable: true },        // 6. pool
-      { pubkey: positionPda, isSigner: false, isWritable: true },    // 7. position
-      { pubkey: custody, isSigner: false, isWritable: true },         // 8. custody (SOL)
-      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 9. custodyDovesPriceAccount
-      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 10. custodyPythnetPriceAccount
-      { pubkey: collateral, isSigner: false, isWritable: true },       // 11. collateralCustody 
-      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 12. collateralCustodyDovesPriceAccount
-      { pubkey: collateralPrice, isSigner: false, isWritable: false }, // 13. collateralCustodyPythnetPriceAccount
-      { pubkey: collateralVault, isSigner: false, isWritable: true },    // 14. collateralCustodyTokenAccount
-      { pubkey: TOKEN_LEDGER, isSigner: false, isWritable: false },    // 15. tokenLedger
-      { pubkey: owner, isSigner: false, isWritable: false },           // 16. referral (use owner)
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 17. tokenProgram
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 18. systemProgram
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 19. eventAuthority
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false },  // 20. program
-    ],
-  }));
+  // Skip InstantIncreasePosition - the request will be fulfilled by keepers
+  // Just return the instructions to submit the position request
+  // The keepers will pick up the request and execute it
 
   const { blockhash } = await connection.getLatestBlockhash();
   return { instructions, blockhash };
