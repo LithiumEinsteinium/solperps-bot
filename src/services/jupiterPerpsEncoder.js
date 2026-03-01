@@ -88,21 +88,61 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   // Step 2: SetComputeUnitPrice
   instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 20000 }));
 
-  // Step 3: CreateIdempotent - create user's SOL ATA
-  instructions.push(
-    new TransactionInstruction({
-      programId: ATA_PROGRAM,
-      keys: [
-        { pubkey: owner, isSigner: true, isWritable: true },
-        { pubkey: userSolAta, isSigner: false, isWritable: true },
-        { pubkey: owner, isSigner: false, isWritable: false },
-        { pubkey: MINTS.SOL, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.from([1]),
-    })
-  );
+  // Step 3: For LONG positions, wrap SOL to wSOL
+  if (isLong) {
+    // Create wSOL ATA if not exists
+    instructions.push(
+      new TransactionInstruction({
+        programId: ATA_PROGRAM,
+        keys: [
+          { pubkey: owner, isSigner: true, isWritable: true },
+          { pubkey: userSolAta, isSigner: false, isWritable: true },
+          { pubkey: owner, isSigner: false, isWritable: false },
+          { pubkey: MINTS.SOL, isSigner: false, isWritable: false },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from([1]), // CreateIdempotent
+      })
+    );
+    
+    // Transfer SOL to wSOL ATA
+    instructions.push(
+      SystemProgram.transfer({
+        fromPubkey: owner,
+        toPubkey: userSolAta,
+        lamports: collateralDelta, // Transfer the collateral amount
+      })
+    );
+    
+    // SyncNative to update wSOL balance
+    instructions.push(
+      new TransactionInstruction({
+        programId: TOKEN_PROGRAM_ID,
+        keys: [
+          { pubkey: userSolAta, isSigner: false, isWritable: true },
+          { pubkey: MINTS.SOL, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from([17]), // SyncNative instruction
+      })
+    );
+  } else {
+    // For SHORT positions, ensure USDC ATA exists
+    instructions.push(
+      new TransactionInstruction({
+        programId: ATA_PROGRAM,
+        keys: [
+          { pubkey: owner, isSigner: true, isWritable: true },
+          { pubkey: userUsdcAta, isSigner: false, isWritable: true },
+          { pubkey: owner, isSigner: false, isWritable: false },
+          { pubkey: MINTS.USDC, isSigner: false, isWritable: false },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from([1]), // CreateIdempotent
+      })
+    );
+  }
 
   // Step 5: CreateIncreasePositionMarketRequest - creates the position account first
   // Data: discriminator(8) + sizeUsdDelta(8) + collateralTokenDelta(8) + side(1) + priceSlippage(8) + jupiterMinimumOut(Option<u64>, 1+8) + counter(8)
