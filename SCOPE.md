@@ -27,59 +27,50 @@
 | `/deposit` | ✅ Working | Get deposit address |
 | `/onchain` | ✅ Working | Shows SOL + USDC balance |
 | `/withdraw` | ✅ Working | Withdraw SOL to external address |
-| `/perp` | ✅ Paper | Paper trading works |
-
-### 🔄 Jupiter Perps Integration (In Progress)
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| `/perp` (real) | 🔄 Near! | Encoder built, testing |
-| RPC | ✅ Working | Helius API |
-| Instruction building | 🔄 Close! | Most instructions work |
+| `/perp` | ✅ WORKING | **REAL Jupiter Perps positions!** 🎉 |
 
 ---
 
-## Jupiter Perps - Current Status
+##UPITER PERPS - NOW WORKING!
 
-### What's Working ✅
-- Transaction builds successfully (6 instructions)
-- CreateIdempotent creates SOL ATA
-- Compute budget instructions work
-- PreSwap instruction executes
+ 🎉 J**First real position opened:** March 1, 2026
+- **TX:** `4kdHU4HGq6TWfPpS9q1XicuDyFHsfuRNPwEzdefSmrim4DmgrRVCoZ62z8Yne2nDbWP1QgJcEhSURKYDDjZmC6ZM`
+- **Position:** SOL LONG 5x, $10
 
-### What's Not Working ❌
-- SetTokenLedger instruction (discriminator mismatch)
-- PreSwap/InstantIncrease position encoding
+### What We Learned
 
-### Key Addresses Discovered
+1. **Request Fulfillment Model** - Jupiter Perps uses a keeper model where you submit a position request and keepers execute it
+2. **Codama Generated IDL** - Use `npx create-codama-clients` to generate proper instruction builders from IDL
+3. **Correct Discriminators** - Get from Codama-generated code, not hand-rolled
+4. **SOL Wrapping** - For LONG positions, must wrap SOL to wSOL using SyncNative
+5. **Collateral Logic** - LONG uses same token as collateral, SHORT uses USDC
+6. **Side Encoding** - `[1]` for long, `[2]` for short (bytes, not strings!)
+
+### Verified Addresses (From Codama + Community Repo)
 - **Perp Program:** `PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu`
 - **Pool:** `5BUwFW4nRbftYTDMbgxykoFWqWHPzahFSNAaaaJtVKsq`
 - **SOL Custody:** `7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz`
 - **USDC Custody:** `G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa`
-- **Token Ledger PDA:** `J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW`
+- **Event Authority:** `37hJBDnntwqhGbK7L6M1bLyvccj4u55CCUiLPdYkiqBN`
+- **Pool SOL Vault:** `BUvduFTd2sWFagCunBPLupG8fBTJqweLw9DuhruNFSCm`
+- **Pool USDC Vault:** `WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS`
 
-### Transaction Flow (6 steps)
+### Correct Discriminators (From Codama)
+- `createIncreasePositionMarketRequest`: `[184, 85, 199, 24, 105, 171, 156, 56]`
+- `setTokenLedger`: `[228, 85, 185, 112 79, 77, 2, 78,]`
+- `increasePositionPreSwap`: `[26, 136, 225, 217, 22, 21, 83, 20]`
+- `instantIncreasePosition`: `[164, 126, 68, 182, 223, 166, 64, 183]`
+
+### Working Transaction Flow (4 steps)
 1. SetComputeUnitLimit
-2. SetComputeUnitPrice
-3. CreateIdempotent (create SOL ATA)
-4. ~~SetTokenLedger~~ (broken - discriminator issue)
-5. InstantIncreasePositionPreSwap
-6. InstantIncreasePosition
+2. SetComputeUnitPrice  
+3. Wrap SOL to wSOL (transfer + SyncNative) + CreateIdempotent
+4. CreateIncreasePositionMarketRequest
 
----
-
-## What We Need to Complete
-
-### 1. Find Correct SetTokenLedger Discriminator
-The current discriminator `7c2f2732f59e01a0` doesn't match any standard Anchor naming.
-
-### 2. Verify PreSwap/InstantIncrease Data Encoding
-From working tx logs:
-- `collateralTokenDelta`: SOL amount after swap (not USDC input!)
-- `side`: 1 = Long, 2 = Short (confirmed)
-
-### 3. Get a Working Reference
-Need a recent successful Jupiter Perps open position transaction to compare against.
+### Key Resources
+- **Community Repo:** https://github.com/julianfssen/jupiter-perps-anchor-idl-parsing
+- **Jupiter Docs:** https://dev.jup.ag/docs/perps
+- **Event Authority:** `37hJBDnntwqhGbK7L6M1bLyvccj4u55CCUiLPdYkiqBN`
 
 ---
 
@@ -91,7 +82,14 @@ HELIUS_API_KEY=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c
 
 ---
 
-*Last Updated: 2026-02-28*
+## Skills Created
+1. **solana-dev** - General Solana development
+2. **integrating-jupiter** - Jupiter API integration  
+3. **solana-anchor-claude-skill** - Anchor program development
+
+---
+
+*Last Updated: 2026-03-01*
 | `/perppositions` | ✅ Working | Paper positions |
 
 ### 🔄 In Progress - Jupiter Perps
