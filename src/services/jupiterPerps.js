@@ -234,21 +234,24 @@ class JupiterPerpsService {
     try {
       const wallet = this.keypair.publicKey;
       
+      console.log('🔴 closePositionByAddress:', { positionAddress: positionAddress.toString(), side });
+      
       // Get user's SOL ATA for receiving funds
       const userSolAta = getATA(MINTS.SOL, wallet);
+      console.log('🔴 userSolAta:', userSolAta.toString());
       
       // Build close position transaction
       const { instructions, blockhash } = await buildClosePositionTransaction(
         this.connection,
         wallet,
-        positionAddress,
+        positionAddress.toString(),
         {
           side,
           receivingAta: userSolAta
         }
       );
       
-      console.log('🔴 Building close tx for position:', positionAddress, 'side:', side);
+      console.log('🔴 Built tx with', instructions.length, 'instructions');
       
       // Create and sign transaction
       const tx = new Transaction();
