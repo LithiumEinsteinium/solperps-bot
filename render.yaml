@@ -5,3 +5,10 @@ services:
     nodeVersion: "20"
     buildCommand: npm install
     startCommand: npm start
+    envVars:
+      - key: JUPITER_API_KEY
+        value: 308e9ccc-655d-4e75-95ae-a325d634a71a
+      - key: HELIUS_API_KEY
+        value: d3bae4a8-b9a7-4ce2-9069-6224be9cd33c
+      - key: TELEGRAM_BOT_TOKEN
+        value: 7924758270:AAFws2KXCa4nHvSUAgwdOixeJIuCenEpVN0
