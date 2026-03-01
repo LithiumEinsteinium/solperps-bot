@@ -28,6 +28,9 @@ class JupiterPerpsService {
     ];
     
     this.keypair = null;
+    this._positionsCache = null;
+    this._positionsCacheTime = 0;
+    this._cacheTimeoutMs = 60000; // Cache for 60 seconds (1 RPM limit)
     this.walletAddress = null;
     console.log('✅ Jupiter Perps v11 (verified addresses)');
   }
@@ -148,16 +151,25 @@ class JupiterPerpsService {
   }
 
   async getPositions() {
-    console.log('🔍 getPositions called, wallet:', this.walletAddress, 'API key:', this.jupiterApiKey ? 'SET' : 'MISSING');
+    // Check cache first
+    const now = Date.now();
+    if (this._positionsCache && (now - this._positionsCacheTime) < this._cacheTimeoutMs) {
+      console.log('🔍 Returning cached positions');
+      return this._positionsCache;
+    }
+    
+    // Fallback: try to get API key from env if not set
+    const apiKey = this.jupiterApiKey || process.env.JUPITER_API_KEY;
+    console.log('🔍 getPositions called, wallet:', this.walletAddress, 'API key:', apiKey ? 'SET' : 'MISSING');
     
     // Try Jupiter Portfolio API first
-    if (this.jupiterApiKey && this.walletAddress) {
+    if (apiKey && this.walletAddress) {
       try {
         const url = `${this.jupiterBaseUrl}/portfolio/v1/positions/${this.walletAddress}`;
         console.log('🔍 Fetching:', url);
         
         const response = await fetch(url, {
-          headers: { 'x-api-key': this.jupiterApiKey }
+          headers: { 'x-api-key': apiKey }
         });
         
         console.log('🔍 Response status:', response.status);
@@ -165,7 +177,10 @@ class JupiterPerpsService {
         if (response.ok) {
           const data = await response.json();
           console.log('🔍 Positions data:', JSON.stringify(data).substring(0, 500));
-          return data.positions || [];
+          // Cache the result
+          this._positionsCache = data.positions || [];
+          this._positionsCacheTime = now;
+          return this._positionsCache;
         } else {
           const err = await response.text();
           console.log('🔍 API error:', err);
