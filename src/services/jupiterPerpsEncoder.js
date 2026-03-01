@@ -35,6 +35,8 @@ const DISCR = {
   createIncreasePosition: Buffer.from([0xb8, 0x55, 0xc7, 0x18, 0x69, 0xab, 0x9c, 0x38]),
   // CORRECT createDecreasePositionMarketRequest: [74, 198, 195, 86, 193, 99, 1, 79]
   createDecreasePosition: Buffer.from([0x4a, 0xc6, 0xc3, 0x56, 0xc1, 0x63, 0x01, 0x4f]),
+  // ClosePositionRequest: [40, 105, 217, 188, 220, 45, 109, 110]
+  closePositionRequest: Buffer.from([0x28, 0x69, 0xd9, 0xbc, 0xdc, 0x2d, 0x6d, 0x6e]),
 };
 
 function enc64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeUInt8(x, i)); return b; }
@@ -203,41 +205,37 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
   return { instructions, blockhash };
 }
 
-// Build close position transaction using keeper model
+// Build close position transaction - simpler version matching the working tx
 async function buildClosePositionTransaction(connection, owner, positionAddress, opts = {}) {
   const { 
-    sizeUsdDelta = 0,           // 0 = close entire position
-    collateralUsdDelta = 0,   // 0 = return all collateral
-    priceSlippage = 0,
-    entirePosition = true      // close entire position
+    side = 'long',
+    receivingAta // User's ATA to receive funds
   } = opts;
 
   const instructions = [];
   
   // Compute budget
-  instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }));
-  instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10000 }));
+  instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 77655 }));
+  instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 170097 }));
 
+  const userSolAta = receivingAta || getATA(MINTS.SOL, owner);
   const userUsdcAta = getATA(MINTS.USDC, owner);
-  const userSolAta = getATA(MINTS.SOL, owner);
   
-  // Determine if long or short based on position - we need to get this from somewhere
-  // For now assume SOL long - we'll need to pass side or derive from position
-  const side = 'long'; // This should be passed in or derived
   const isLong = side.toLowerCase() === 'long';
+  const receivingAccount = isLong ? userSolAta : userUsdcAta;
   
-  const inputMint = isLong ? MINTS.SOL : MINTS.USDC;
-  const receivingAta = isLong ? userSolAta : userUsdcAta;
-  
+  // Pool vaults
+  const poolSolVault = new PublicKey('BUvduFTd2sWFagCunBPLupG8fBTJqweLw9DuhruNFSCm');
+  const poolUsdcVault = new PublicKey('WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS');
   const collateralVault = isLong ? poolSolVault : poolUsdcVault;
-  const custody = CUSTODIES.SOL;
-  const collateral = isLong ? CUSTODIES.SOL : CUSTODIES.USDC;
 
   // Position PDA (same derivation as open)
+  const custody = CUSTODIES.SOL;
+  const collateral = isLong ? CUSTODIES.SOL : CUSTODIES.USDC;
   const positionPda = derivePosPda(owner, JLP_POOL, custody, collateral, side);
 
-  // Position request PDA - derive with counter
-  const counter = 0; // Simplified - should get current counter
+  // Position request PDA - derive with counter 0
+  const counter = 0;
   const positionRequestSeeds = [
     Buffer.from('position_request'),
     positionPda.toBuffer(),
@@ -246,46 +244,44 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   ];
   const [positionRequest, bump] = PublicKey.findProgramAddressSync(positionRequestSeeds, PERP_PROGRAM_ID);
 
-  // Data: discriminator(8) + collateralUsdDelta(8) + sizeUsdDelta(8) + priceSlippage(8) + jupiterMinimumOut(9) + entirePosition(1) + counter(8)
-  const data = Buffer.concat([
-    DISCR.createDecreasePosition,           // 8 bytes
-    enc64(collateralUsdDelta),              // 8 bytes
-    enc64(sizeUsdDelta),                    // 8 bytes
-    enc64(priceSlippage),                   // 8 bytes
-    encOption64(null),                      // 1 + 8 = 9 bytes (Option<u64> = None)
-    entirePosition ? Buffer.from([1]) : Buffer.from([0]), // 1 byte
-    enc64(counter)                          // 8 bytes
-  ]);
+  // Position request ATA (temporary token account)
+  const positionRequestAta = getATA(MINTS.SOL, positionRequest);
 
-  // Get custody for position
-  const custodyMint = isLong ? MINTS.SOL : MINTS.USDC;
-  const custodyAccount = isLong ? CUSTODIES.SOL : CUSTODIES.USDC;
-  
-  // Receiving account (user's ATA for the token they'll receive)
-  const receivingMint = isLong ? MINTS.SOL : MINTS.USDC;
+  // ClosePositionRequest has NO data - just discriminator
+  const data = DISCR.closePositionRequest;
+
+  // Keys from your working tx:
+  // 1. Keeper (signer) - use owner
+  // 2. Owner (writable)
+  // 3. Owner Ata (writable)
+  // 4. Pool (writable)
+  // 5. Position Request (writable)
+  // 6. Position Request Ata (writable)
+  // 7. Position
+  // 8. Mint
+  // 9. Token Program
+  // 10. System Program
+  // 11. Associated Token Program
+  // 12. Event Authority
+  // 13. Program
 
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },           // 1. owner
-      { pubkey: receivingAta, isSigner: false, isWritable: true }, // 2. receivingAccount
-      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 3. perpetuals
-      { pubkey: JLP_POOL, isSigner: false, isWritable: true },    // 4. pool
-      { pubkey: positionPda, isSigner: false, isWritable: true },  // 5. position
-      { pubkey: positionRequest, isSigner: false, isWritable: true }, // 6. positionRequest
-      { pubkey: receivingAta, isSigner: false, isWritable: true }, // 7. positionRequestAta
-      { pubkey: custodyAccount, isSigner: false, isWritable: true },  // 8. custody
-      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 9. custodyTokenAccount
-      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 10. custodyPrices
-      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 11. custodyTwap
-      { pubkey: receivingMint === MINTS.SOL ? collateralVault : poolUsdcVault, isSigner: false, isWritable: true }, // 12. collateralCustody
-      { pubkey: receivingMint === MINTS.SOL ? poolSolVault : poolUsdcVault, isSigner: false, isWritable: true }, // 13. collateralCustodyTokenAccount
-      { pubkey: owner, isSigner: false, isWritable: false },         // 14. referral
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 15. tokenProgram
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 16. systemProgram
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 17. eventAuthority
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 18. program
+      { pubkey: owner, isSigner: true, isWritable: true },            // 1. keeper (signer)
+      { pubkey: owner, isSigner: false, isWritable: true },          // 2. owner
+      { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 3. ownerAta
+      { pubkey: JLP_POOL, isSigner: false, isWritable: true },        // 4. pool
+      { pubkey: positionRequest, isSigner: false, isWritable: true }, // 5. positionRequest
+      { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 6. positionRequestAta
+      { pubkey: new PublicKey(positionAddress), isSigner: false, isWritable: false }, // 7. position
+      { pubkey: MINTS.SOL, isSigner: false, isWritable: false },    // 8. mint
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 9. tokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 10. systemProgram
+      { pubkey: ATA_PROGRAM, isSigner: false, isWritable: false },  // 11. associatedTokenProgram
+      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 12. eventAuthority
+      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 13. program
     ],
   }));
 

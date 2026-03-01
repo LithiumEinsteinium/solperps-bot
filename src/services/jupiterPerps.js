@@ -229,23 +229,25 @@ class JupiterPerpsService {
   
   async getAccountInfo() { return { wallet: this.walletAddress }; }
   
-  async closePositionByAddress(positionAddress) {
+  async closePositionByAddress(positionAddress, side = 'long') {
     try {
       const wallet = this.keypair.publicKey;
+      
+      // Get user's SOL ATA for receiving funds
+      const userSolAta = getATA(MINTS.SOL, wallet);
       
       // Build close position transaction
       const { instructions, blockhash } = await buildClosePositionTransaction(
         this.connection,
         wallet,
-        new PublicKey(positionAddress),
+        positionAddress,
         {
-          entirePosition: true,
-          sizeUsdDelta: 0, // 0 = close entire
-          priceSlippage: Math.floor(10 * 1000000) // 10% slippage
+          side,
+          receivingAta: userSolAta
         }
       );
       
-      console.log('🔴 Building close tx for position:', positionAddress);
+      console.log('🔴 Building close tx for position:', positionAddress, 'side:', side);
       
       // Create and sign transaction
       const tx = new Transaction();
