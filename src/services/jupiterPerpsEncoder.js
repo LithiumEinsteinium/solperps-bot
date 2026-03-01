@@ -8,7 +8,6 @@ const ATA_PROGRAM = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 const EVENT_AUTHORITY = new PublicKey('Dw274Hf6n1ir4Dw6cSA1ZSe6b445K3nNv5z9sr4j9GiV');
 const PERPETUALS_PDA = new PublicKey('H4ND9aYttUVLFmNypZqLjZ52FYiGvdEB45GmwNoKEjTj');
 
-const TOKEN_LEDGER = new PublicKey('J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW');
 const CUSTODIES = {
   SOL: new PublicKey('7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz'),
   USDC: new PublicKey('G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa'),
@@ -78,14 +77,13 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 4: SetTokenLedger
+  // Step 4: SetTokenLedger - use user's SOL ATA directly (not a PDA)
   const setTokenData = DISCR.setTokenLedger;
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data: setTokenData,
     keys: [
       { pubkey: owner, isSigner: true, isWritable: true },
-      { pubkey: TOKEN_LEDGER, isSigner: false, isWritable: true },
       { pubkey: userSolAta, isSigner: false, isWritable: true },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     ],
