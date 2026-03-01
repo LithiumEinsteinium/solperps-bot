@@ -13,9 +13,9 @@ const {
 } = require('./jupiterPerpsEncoder');
 
 class JupiterPerpsService {
-  constructor() {
+  constructor(config = {}) {
     this.connection = new Connection('https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c', 'confirmed');
-    this.jupiterApiKey = process.env.JUPITER_API_KEY;
+    this.jupiterApiKey = config.jupiterApiKey || process.env.JUPITER_API_KEY;
     this.jupiterBaseUrl = 'https://api.jup.ag';
     
     // Multiple RPCs for reliability
@@ -143,22 +143,36 @@ class JupiterPerpsService {
   }
 
   async getPositions() {
+    console.log('🔍 getPositions called, wallet:', this.walletAddress, 'API key:', this.jupiterApiKey ? 'SET' : 'MISSING');
+    
     // Try Jupiter Portfolio API first
-    if (this.jupiterApiKey) {
+    if (this.jupiterApiKey && this.walletAddress) {
       try {
-        const response = await fetch(`${this.jupiterBaseUrl}/portfolio/v1/positions/${this.walletAddress}`, {
+        const url = `${this.jupiterBaseUrl}/portfolio/v1/positions/${this.walletAddress}`;
+        console.log('🔍 Fetching:', url);
+        
+        const response = await fetch(url, {
           headers: { 'x-api-key': this.jupiterApiKey }
         });
+        
+        console.log('🔍 Response status:', response.status);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('🔍 Positions data:', JSON.stringify(data).substring(0, 500));
           return data.positions || [];
+        } else {
+          const err = await response.text();
+          console.log('🔍 API error:', err);
         }
       } catch (e) {
-        console.log('Jupiter Portfolio API error:', e.message);
+        console.log('🔍 Jupiter Portfolio API error:', e.message);
       }
+    } else {
+      console.log('🔍 Missing API key or wallet address');
     }
     
-    // Fallback: return empty (need API key for real positions)
+    // Fallback: return empty
     return [];
   }
   

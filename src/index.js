@@ -538,6 +538,7 @@ if (require.main === module) {
       rpcUrl: process.env.RPC_URL || process.env.SOLANA_RPC || 'https://mainnet.helius-rpc.com/?api-key=d3bae4a8-b9a7-4ce2-9069-6224be9cd33c',
       paperTrading: process.env.PAPER_TRADING === 'true',
       autoTrade: process.env.AUTO_TRADE === 'true',
+      jupiterApiKey: process.env.JUPITER_API_KEY,
       jupiterConfig: {},
       positionConfig: {
         storagePath: process.env.POSITION_STORAGE || './data/positions.json'
