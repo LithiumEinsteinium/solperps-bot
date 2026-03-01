@@ -52,30 +52,30 @@ function derivePosPda(owner, custody, collateral, side) {
 
 async function buildOpenPositionTransaction(connection, owner, opts) {
   const { market, side, collateralDelta, sizeUsdDelta, priceSlippage } = opts;
-  
+
   const custody = CUSTODIES[market];
   const collateral = CUSTODIES.USDC;
-  
+
   const userUsdcAta = getATA(MINTS.USDC, owner);
   const userSolAta = getATA(MINTS.SOL, owner);
-  
+
   // Pool token accounts (vaults)
   const poolUsdcVault = new PublicKey('WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS');
   const poolSolVault = new PublicKey('BUvduFTd2sWFagCunBPLupG8fBTJqweLw9DuhruNFSCm');
-  
+
   const positionPda = derivePosPda(owner, custody, collateral, side);
-  
+
   console.log('userUsdcAta:', userUsdcAta.toString());
   console.log('userSolAta:', userSolAta.toString());
-  
+
   const instructions = [];
-  
+
   // Step 1: SetComputeUnitLimit
   instructions.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }));
-  
+
   // Step 2: SetComputeUnitPrice
   instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 20000 }));
-  
+
   // Step 3: CreateIdempotent - create user's SOL ATA
   instructions.push(
     new TransactionInstruction({
@@ -91,33 +91,8 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
       data: Buffer.from([1]),
     })
   );
-  
-  // Skip SetTokenLedger - go directly to PreSwap
-  // PreSwap (16 byte discriminator) (16 accounts - exact order from Solscan)
-  const preData = Buffer.concat([DISCR.preSwap, enc64(collateralDelta), enc64(sizeUsdDelta), encSide(side), enc64(priceSlippage)]);
-  instructions.push(new TransactionInstruction({
-    programId: PERP_PROGRAM_ID,
-    data: preData,
-    keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },           // 1. Owner
-      { pubkey: userUsdcAta, isSigner: false, isWritable: true },    // 2. Funding Account (USDC)
-      { pubkey: userSolAta, isSigner: false, isWritable: true },     // 3. Receiving Account (SOL)
-      { pubkey: TRANSFER_AUTHORITY, isSigner: false, isWritable: false }, // 4. Transfer Authority
-      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 5. Perpetuals
-      { pubkey: JLP_POOL, isSigner: false, isWritable: true },       // 6. Pool
-      { pubkey: collateral, isSigner: false, isWritable: true },      // 7. Receiving Custody (USDC)
-      { pubkey: DOVE_PRICE_USDC, isSigner: false, isWritable: false }, // 8. Dove Price USDC
-      { pubkey: poolUsdcVault, isSigner: false, isWritable: true },   // 9. Receiving Custody Token Account
-      { pubkey: custody, isSigner: false, isWritable: true },        // 10. Dispensing Custody (SOL)
-      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 11. Dove Price SOL
-      { pubkey: poolSolVault, isSigner: false, isWritable: true },    // 12. Dispensing Custody Token Account
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 13. Token Program
-      { pubkey: new PublicKey('Sysvar1nstructions1111111111111111111111111'), isSigner: false, isWritable: false }, // 14. Sysvar
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 15. Event Authority
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false }, // 16. Program
-    ],
-  }));
-  
+
+  // Skip PreSwap - go directly to InstantIncreasePosition
   // Step 6: InstantIncreasePosition
   // Data: discriminator(8) + sizeUsdDelta(8) + collateralTokenDelta(Option<u64>, 1+8) + side(1) + priceSlippage(8) + requestTime(8)
   const requestTime = Math.floor(Date.now() / 1000);
@@ -129,26 +104,37 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     enc64(priceSlippage),             // 8 bytes
     encI64(requestTime)               // 8 bytes
   ]);
+  
+  // Token Ledger PDA
+  const TOKEN_LEDGER = new PublicKey('J3mcYkpWmTSMJhFKKrPWQwEMDppd5cTb1TAEqdGUBbhW');
+  
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
     data: instantData,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },
-      { pubkey: positionPda, isSigner: false, isWritable: true },
-      { pubkey: userSolAta, isSigner: false, isWritable: true },
-      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false },
-      { pubkey: JLP_POOL, isSigner: false, isWritable: true },
-      { pubkey: custody, isSigner: false, isWritable: true },
-      { pubkey: collateral, isSigner: false, isWritable: true },
-      { pubkey: poolSolVault, isSigner: false, isWritable: true },
-      { pubkey: poolUsdcVault, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false },
-      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: owner, isSigner: true, isWritable: true },             // 1. keeper (signer)
+      { pubkey: owner, isSigner: true, isWritable: true },            // 2. apiKeeper (signer) - use owner
+      { pubkey: owner, isSigner: true, isWritable: true },            // 3. owner (signer)
+      { pubkey: userUsdcAta, isSigner: false, isWritable: true },     // 4. fundingAccount (USDC)
+      { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 5. perpetuals
+      { pubkey: JLP_POOL, isSigner: false, isWritable: true },        // 6. pool
+      { pubkey: positionPda, isSigner: false, isWritable: true },    // 7. position
+      { pubkey: custody, isSigner: false, isWritable: true },         // 8. custody (SOL)
+      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 9. custodyDovesPriceAccount
+      { pubkey: DOVE_PRICE_SOL, isSigner: false, isWritable: false }, // 10. custodyPythnetPriceAccount
+      { pubkey: collateral, isSigner: false, isWritable: true },       // 11. collateralCustody (USDC)
+      { pubkey: DOVE_PRICE_USDC, isSigner: false, isWritable: false }, // 12. collateralCustodyDovesPriceAccount
+      { pubkey: DOVE_PRICE_USDC, isSigner: false, isWritable: false }, // 13. collateralCustodyPythnetPriceAccount
+      { pubkey: poolUsdcVault, isSigner: false, isWritable: true },    // 14. collateralCustodyTokenAccount
+      { pubkey: TOKEN_LEDGER, isSigner: false, isWritable: false },    // 15. tokenLedger
+      { pubkey: owner, isSigner: false, isWritable: false },           // 16. referral (use owner)
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 17. tokenProgram
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 18. systemProgram
+      { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false }, // 19. eventAuthority
+      { pubkey: PERP_PROGRAM_ID, isSigner: false, isWritable: false },  // 20. program
     ],
   }));
-  
+
   const { blockhash } = await connection.getLatestBlockhash();
   return { instructions, blockhash };
 }
