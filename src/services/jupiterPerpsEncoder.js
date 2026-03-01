@@ -277,15 +277,15 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
       { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 2. receivingAccount
       { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 3. perpetuals
       { pubkey: JLP_POOL, isSigner: false, isWritable: true }, // 4. pool
-      { pubkey: positionPda, isSigner: false, isWritable: false }, // 5. position (readonly)
+      { pubkey: positionPda, isSigner: false, isWritable: false }, // 5. position
       { pubkey: positionRequest, isSigner: false, isWritable: true }, // 6. positionRequest
       { pubkey: positionRequestAta, isSigner: false, isWritable: true }, // 7. positionRequestAta
-      { pubkey: custody, isSigner: false, isWritable: true }, // 8. custody
-      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 9. custodyTokenAccount
+      { pubkey: custody, isSigner: false, isWritable: true }, // 8. custody (PDA)
+      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 9. custodyTokenAccount (vault)
       { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 10. custodyPrices
       { pubkey: collateralPriceAccount, isSigner: false, isWritable: false }, // 11. custodyTwap
-      { pubkey: collateral, isSigner: false, isWritable: true }, // 12. collateralCustody
-      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 13. collateralCustodyTokenAccount
+      { pubkey: custody, isSigner: false, isWritable: true }, // 12. collateralCustody (PDA - same as custody for long)
+      { pubkey: collateralVault, isSigner: false, isWritable: true }, // 13. collateralCustodyTokenAccount (vault)
       { pubkey: owner, isSigner: false, isWritable: false }, // 14. referral
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 15. tokenProgram
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 16. systemProgram
