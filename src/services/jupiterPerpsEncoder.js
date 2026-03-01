@@ -86,18 +86,8 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 4: SetTokenLedger
-  instructions.push(new TransactionInstruction({
-    programId: PERP_PROGRAM_ID,
-    data: DISCR.setTokenLedger,
-    keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },
-      { pubkey: userSolAta, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    ],
-  }));
-  
-  // Step 5: PreSwap (16 byte discriminator) (16 accounts - exact order from Solscan)
+  // Skip SetTokenLedger - go directly to PreSwap
+  // PreSwap (16 byte discriminator) (16 accounts - exact order from Solscan)
   const preData = Buffer.concat([DISCR.preSwap, enc64(collateralDelta), enc64(sizeUsdDelta), encSide(side), enc64(priceSlippage)]);
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
