@@ -23,7 +23,7 @@ const DOVE_PRICE_USDC = new PublicKey('6Jp2xZUTWdDD2ZyUPRzeMdc6AFQ5K3pFgZxk2Eijf
 const DOVE_PRICE_SOL = new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5zXh');
 
 const DISCR = {
-  setTokenLedger: Buffer.from([0xe4, 0x55, 0xb9, 0x70, 0x4e, 0x4f, 0x4d, 0x02]),
+  setTokenLedger: Buffer.from([0x7c, 0x2f, 0x27, 0x32, 0xf5, 0x9e, 0x01, 0xa0]),
   preSwap: Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28]),
   instantIncrease: Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24]),
 };
@@ -84,7 +84,18 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 4: Skip SetTokenLedger for now - try PreSwap directly (16 accounts - exact order from Solscan)
+  // Step 4: SetTokenLedger (with correct discriminator!)
+  instructions.push(new TransactionInstruction({
+    programId: PERP_PROGRAM_ID,
+    data: DISCR.setTokenLedger,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: userSolAta, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+  }));
+  
+  // Step 5: PreSwap (16 accounts - exact order from Solscan)
   const preData = Buffer.concat([DISCR.preSwap, enc64(collateralDelta), enc64(sizeUsdDelta), encSide(side), enc64(priceSlippage)]);
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
