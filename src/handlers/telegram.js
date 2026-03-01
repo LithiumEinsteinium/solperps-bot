@@ -89,6 +89,52 @@ class TelegramHandler {
       this.sendMessage(msg.chat.id, `✅ TP/SL set: TP ${tp}%, SL ${sl}%`);
     });
 
+    // Jupiter Perps TP
+    this.telegram.onText(/\/perptp\s+(\d+)\s+(\d+)/, async (msg, match) => {
+      const chatId = msg.chat.id;
+      const positionIndex = parseInt(match[1]) - 1;
+      const triggerPrice = parseFloat(match[2]);
+      
+      const positions = await this.bot.getPerpPositions(chatId);
+      if (!positions[positionIndex]) {
+        return this.sendMessage(chatId, `❌ Position ${match[1]} not found`);
+      }
+      
+      const pos = positions[positionIndex];
+      this.sendMessage(chatId, `🎯 Setting Take Profit at $${triggerPrice}...`);
+      
+      const result = await this.bot.setPerpTpSl(pos.address, pos.side, triggerPrice, true);
+      
+      if (result.success) {
+        this.sendMessage(chatId, `✅ Take Profit set!\nPrice: $${triggerPrice}\nTx: ${result.txid}`);
+      } else {
+        this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+      }
+    });
+
+    // Jupiter Perps SL
+    this.telegram.onText(/\/perpsl\s+(\d+)\s+(\d+)/, async (msg, match) => {
+      const chatId = msg.chat.id;
+      const positionIndex = parseInt(match[1]) - 1;
+      const triggerPrice = parseFloat(match[2]);
+      
+      const positions = await this.bot.getPerpPositions(chatId);
+      if (!positions[positionIndex]) {
+        return this.sendMessage(chatId, `❌ Position ${match[1]} not found`);
+      }
+      
+      const pos = positions[positionIndex];
+      this.sendMessage(chatId, `🛡️ Setting Stop Loss at $${triggerPrice}...`);
+      
+      const result = await this.bot.setPerpTpSl(pos.address, pos.side, triggerPrice, false);
+      
+      if (result.success) {
+        this.sendMessage(chatId, `✅ Stop Loss set!\nPrice: $${triggerPrice}\nTx: ${result.txid}`);
+      } else {
+        this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+      }
+    });
+
     // Transfer
     this.telegram.onText(/\/transfer\s+(\w+)\s+([\d.]+)/, async (msg, match) => {
       const address = match[1];

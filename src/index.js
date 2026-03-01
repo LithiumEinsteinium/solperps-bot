@@ -424,6 +424,30 @@ class SolPerpsBot {
     
     return await this.perps.closePosition(positionIndex);
   }
+  
+  async setPerpTpSl(chatId, positionIndex, triggerPrice, isTakeProfit) {
+    // Use Jupiter Perps for real trading
+    if (this.jupiterPerps) {
+      const jupPrivateKey = this.getUserWalletPrivateKey(chatId);
+      if (!jupPrivateKey) return { success: false, error: 'No wallet' };
+      
+      await this.jupiterPerps.initialize(jupPrivateKey);
+      
+      // Get positions to find the one
+      const positions = await this.jupiterPerps.getPositions();
+      const position = positions[positionIndex];
+      
+      if (!position) {
+        return { success: false, error: 'Position not found' };
+      }
+      
+      // Set TP/SL
+      const result = await this.jupiterPerps.setTpSl(position.address, position.side, triggerPrice, isTakeProfit);
+      return result;
+    }
+    
+    return { success: false, error: 'Jupiter not available' };
+  }
 
   async getPerpPositions(chatId) {
     // Paper trading mode

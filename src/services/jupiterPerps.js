@@ -11,7 +11,8 @@ const {
   MINTS,
   getATA,
   buildOpenPositionTransaction,
-  buildClosePositionTransaction
+  buildClosePositionTransaction,
+  buildTpslTransaction
 } = require('./jupiterPerpsEncoder');
 
 class JupiterPerpsService {
@@ -277,6 +278,53 @@ class JupiterPerpsService {
   }
   
   async closePosition() { return { error: 'Use closePositionByAddress instead' }; }
+  
+  async setTpSl(positionAddress, side, triggerPrice, isTakeProfit) {
+    try {
+      const wallet = this.keypair.publicKey;
+      
+      console.log('🎯 Setting TP/SL:', { positionAddress, side, triggerPrice, isTakeProfit });
+      
+      // Get receiving ATA (USDC for long, SOL for short)
+      const userUsdcAta = getATA(MINTS.USDC, wallet);
+      
+      // Build TP/SL transaction
+      const { instructions, blockhash } = await buildTpslTransaction(
+        this.connection,
+        wallet,
+        positionAddress,
+        {
+          side,
+          triggerPrice,
+          isTakeProfit,
+          receivingAta: userUsdcAta
+        }
+      );
+      
+      console.log('🎯 Built TP/SL tx with', instructions.length, 'instructions');
+      
+      // Create and sign transaction
+      const tx = new Transaction();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet;
+      instructions.forEach(instr => tx.add(instr));
+      
+      // Sign
+      tx.sign(this.keypair);
+      
+      // Send
+      const sig = await this.connection.sendRawTransaction(tx.serialize());
+      console.log('🎯 TP/SL tx sent:', sig);
+      
+      // Confirm
+      await this.connection.confirmTransaction(sig, 'confirmed');
+      
+      return { success: true, txid: sig };
+    } catch (e) {
+      console.log('🎯 TP/SL error:', e.message);
+      return { success: false, error: e.message };
+    }
+  }
 }
 
 module.exports = { JupiterPerpsService };
