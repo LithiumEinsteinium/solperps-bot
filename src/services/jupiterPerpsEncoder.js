@@ -84,18 +84,8 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Step 4: SetTokenLedger (no owner signer - just the PDA and token account)
-  instructions.push(new TransactionInstruction({
-    programId: PERP_PROGRAM_ID,
-    data: DISCR.setTokenLedger,
-    keys: [
-      { pubkey: userSolAta, isSigner: false, isWritable: true },  // Token Ledger PDA
-      { pubkey: userSolAta, isSigner: false, isWritable: true },  // Token Account (same for sync)
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    ],
-  }));
-  
-  // Step 5: PreSwap (16 accounts - exact order from Solscan)
+  // Skip SetTokenLedger - go directly to PreSwap
+  // PreSwap (16 accounts - exact order from Solscan)
   const preData = Buffer.concat([DISCR.preSwap, enc64(collateralDelta), enc64(sizeUsdDelta), encSide(side), enc64(priceSlippage)]);
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
