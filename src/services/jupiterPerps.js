@@ -18,7 +18,8 @@ class JupiterPerpsService {
     this.jupiterApiKey = config.jupiterApiKey || process.env.JUPITER_API_KEY;
     this.jupiterBaseUrl = 'https://api.jup.ag';
     
-    console.log('🔑 JupiterPerpsService init - config.apiKey:', config.jupiterApiKey, 'env.JUPITER_API_KEY:', process.env.JUPITER_API_KEY ? 'SET' : 'MISSING');
+    console.log('🔑 JupiterPerpsService init - config.apiKey:', config.jupiterApiKey, 'env vars:', Object.keys(process.env).filter(k => k.includes('JUP')).join(','));
+    console.log('🔑 Full env JUPITER:', process.env.JUPITER_API_KEY);
     
     // Multiple RPCs for reliability
     this.rpcUrls = [
