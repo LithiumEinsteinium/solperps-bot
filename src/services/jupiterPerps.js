@@ -9,7 +9,8 @@ const BN = require('bn.js');
 const { 
   CUSTODIES, 
   MINTS,
-  buildOpenPositionTransaction 
+  buildOpenPositionTransaction,
+  buildClosePositionTransaction
 } = require('./jupiterPerpsEncoder');
 
 class JupiterPerpsService {
@@ -229,14 +230,44 @@ class JupiterPerpsService {
   async getAccountInfo() { return { wallet: this.walletAddress }; }
   
   async closePositionByAddress(positionAddress) {
-    // For closing, we need to use the decrease position instruction
-    // This is more complex - requires encoding the decrease position request
-    // For now, return a message directing user to close on Jupiter
-    return { 
-      success: false, 
-      error: 'Please close position on Jupiter website for now. Auto-close coming soon!',
-      positionAddress
-    };
+    try {
+      const wallet = this.keypair.publicKey;
+      
+      // Build close position transaction
+      const { instructions, blockhash } = await buildClosePositionTransaction(
+        this.connection,
+        wallet,
+        new PublicKey(positionAddress),
+        {
+          entirePosition: true,
+          sizeUsdDelta: 0, // 0 = close entire
+          priceSlippage: Math.floor(10 * 1000000) // 10% slippage
+        }
+      );
+      
+      console.log('🔴 Building close tx for position:', positionAddress);
+      
+      // Create and sign transaction
+      const tx = new Transaction();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet;
+      instructions.forEach(instr => tx.add(instr));
+      
+      // Sign
+      const signedTx = await this.connection.signTransaction(tx, [this.keypair]);
+      
+      // Send
+      const sig = await this.connection.sendRawTransaction(signedTx.serialize());
+      console.log('🔴 Close tx sent:', sig);
+      
+      // Confirm
+      await this.connection.confirmTransaction(sig, 'confirmed');
+      
+      return { success: true, txid: sig };
+    } catch (e) {
+      console.log('🔴 Close error:', e.message);
+      return { success: false, error: e.message };
+    }
   }
   
   async closePosition() { return { error: 'Use closePositionByAddress instead' }; }
