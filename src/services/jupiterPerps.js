@@ -227,7 +227,19 @@ class JupiterPerpsService {
   }
   
   async getAccountInfo() { return { wallet: this.walletAddress }; }
-  async closePosition() { return { error: 'Not impl' }; }
+  
+  async closePositionByAddress(positionAddress) {
+    // For closing, we need to use the decrease position instruction
+    // This is more complex - requires encoding the decrease position request
+    // For now, return a message directing user to close on Jupiter
+    return { 
+      success: false, 
+      error: 'Please close position on Jupiter website for now. Auto-close coming soon!',
+      positionAddress
+    };
+  }
+  
+  async closePosition() { return { error: 'Use closePositionByAddress instead' }; }
 }
 
 module.exports = { JupiterPerpsService };

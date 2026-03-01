@@ -421,6 +421,26 @@ class SolPerpsBot {
       this.perps.lastWalletKey = privateKey;
     }
     
+    // Use Jupiter Perps for real trading
+    if (this.jupiterPerps) {
+      const jupPrivateKey = this.getUserWalletPrivateKey(chatId);
+      if (!jupPrivateKey) return { success: false, error: 'No wallet' };
+      
+      await this.jupiterPerps.initialize(jupPrivateKey);
+      
+      // Get positions to find the one to close
+      const positions = await this.jupiterPerps.getPositions();
+      const position = positions[positionIndex];
+      
+      if (!position) {
+        return { success: false, error: 'Position not found' };
+      }
+      
+      // Close the position
+      const result = await this.jupiterPerps.closePositionByAddress(position.positionAddress);
+      return result;
+    }
+    
     return await this.perps.closePosition(positionIndex);
   }
 
@@ -448,12 +468,15 @@ class SolPerpsBot {
         
         return positions.map((p, i) => ({
           index: i,
-          symbol: p.symbol || p.marketSymbol || 'SOL',
+          symbol: p.symbol || 'SOL',
           side: p.side === 'long' ? 'long' : 'short',
-          leverage: p.currentLeverage || 1,
-          size: p.sizeUsd || p.size || 0,
+          leverage: p.leverage || 1,
+          size: p.size || p.sizeValue || 0,
           entryPrice: p.entryPrice || 0,
-          pnl: p.unrealizedPnl || 0,
+          pnl: p.pnl || 0,
+          liquidationPrice: p.liquidationPrice,
+          markPrice: p.markPrice,
+          positionAddress: p.address,
           mode: 'jupiter'
         }));
       } catch (e) {
