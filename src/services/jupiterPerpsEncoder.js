@@ -35,6 +35,8 @@ const DISCR = {
   createIncreasePosition: Buffer.from([0xb8, 0x55, 0xc7, 0x18, 0x69, 0xab, 0x9c, 0x38]),
   // CORRECT createDecreasePositionMarketRequest: [74, 198, 195, 86, 193, 99, 1, 79]
   createDecreasePosition: Buffer.from([0x4a, 0xc6, 0xc3, 0x56, 0xc1, 0x63, 0x01, 0x4f]),
+  // createDecreasePositionRequest2: [105, 64, 201, 82, 250, 14, 109, 77]
+  createDecreasePosition2: Buffer.from([0x69, 0x40, 0xc9, 0x52, 0xfa, 0x0e, 0x6d, 0x4d]),
   // ClosePositionRequest: [40, 105, 217, 188, 220, 45, 109, 110]
   closePositionRequest: Buffer.from([0x28, 0x69, 0xd9, 0xbc, 0xdc, 0x2d, 0x6d, 0x6e]),
 };
@@ -247,14 +249,14 @@ async function buildClosePositionTransaction(connection, owner, positionAddress,
   // Position request ATA (temporary token account)
   const positionRequestAta = getATA(MINTS.SOL, positionRequest);
 
-  // Use createDecreasePositionMarketRequest (keeper model like open)
+  // Use createDecreasePositionRequest2 
   const data = Buffer.concat([
-    DISCR.createDecreasePosition,      // 8 bytes
+    DISCR.createDecreasePosition2,      // 8 bytes
     enc64(0),                           // collateralUsdDelta
     enc64(0),                           // sizeUsdDelta (0 = close entire)
     enc64(0),                           // priceSlippage
-    encOption64(null),                  // jupiterMinimumOut
-    Buffer.from([1]),                  // entirePosition = true
+    encOption64(null),                  // jupiterMinimumOut (None)
+    Buffer.from([1]),                  // entirePosition = true (as Option<bool>)
     enc64(counter)                     // counter
   ]);
 
