@@ -24,8 +24,10 @@ const DOVE_PRICE_SOL = new PublicKey('FYq2BWQ1V5P1WFBqr3qB2Kb5yHVvSv7upzKodgQE5z
 
 const DISCR = {
   setTokenLedger: Buffer.from([0x7c, 0x2f, 0x27, 0x32, 0xf5, 0x9e, 0x01, 0xa0]),
-  preSwap: Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28]),
-  instantIncrease: Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24]),
+  // PreSwap: 16 bytes (2 discriminators)
+  preSwap: Buffer.from([0x27, 0x24, 0xb7, 0x6d, 0x30, 0x11, 0x63, 0x28, 0xfa, 0x3f, 0x5b, 0xe7, 0xe5, 0xcb, 0x1f, 0x53]),
+  // InstantIncreasePosition: 16 bytes (2 discriminators)
+  instantIncrease: Buffer.from([0xe2, 0x28, 0x0d, 0xdb, 0x06, 0x44, 0x43, 0x24, 0x41, 0x86, 0x90, 0x3c, 0x90, 0x41, 0x46, 0x09]),
 };
 
 function enc64(v) { const b = Buffer.alloc(8); new BN(v).toArray('le', 8).forEach((x, i) => b.writeUInt8(x, i)); return b; }
@@ -84,8 +86,18 @@ async function buildOpenPositionTransaction(connection, owner, opts) {
     })
   );
   
-  // Skip SetTokenLedger - go directly to PreSwap
-  // PreSwap (16 accounts - exact order from Solscan)
+  // Step 4: SetTokenLedger
+  instructions.push(new TransactionInstruction({
+    programId: PERP_PROGRAM_ID,
+    data: DISCR.setTokenLedger,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: userSolAta, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+  }));
+  
+  // Step 5: PreSwap (16 byte discriminator) (16 accounts - exact order from Solscan)
   const preData = Buffer.concat([DISCR.preSwap, enc64(collateralDelta), enc64(sizeUsdDelta), encSide(side), enc64(priceSlippage)]);
   instructions.push(new TransactionInstruction({
     programId: PERP_PROGRAM_ID,
