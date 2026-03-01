@@ -435,6 +435,32 @@ class SolPerpsBot {
       }));
     }
     
+    // Use Jupiter Perps for real trading
+    if (this.jupiterPerps) {
+      try {
+        const jupPrivateKey = this.getUserWalletPrivateKey(chatId);
+        const jupWalletAddress = this.userWallets.getAddress(chatId);
+        if (!jupPrivateKey) return [];
+        
+        await this.jupiterPerps.initialize(jupPrivateKey, { walletAddress: jupWalletAddress });
+        const positions = await this.jupiterPerps.getPositions();
+        
+        return positions.map((p, i) => ({
+          index: i,
+          symbol: p.symbol || p.marketSymbol || 'SOL',
+          side: p.side === 'long' ? 'long' : 'short',
+          leverage: p.currentLeverage || 1,
+          size: p.sizeUsd || p.size || 0,
+          entryPrice: p.entryPrice || 0,
+          pnl: p.unrealizedPnl || 0,
+          mode: 'jupiter'
+        }));
+      } catch (e) {
+        console.log('Jupiter positions error:', e.message);
+      }
+    }
+    
+    // Fallback to Drift
     if (!this.perps) return [];
     
     const isTestnet = this.userTestnet?.get(chatId.toString()) || false;
