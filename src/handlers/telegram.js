@@ -189,14 +189,15 @@ class TelegramHandler {
 /perp SYM SIDE AMT LEV — Open perp (paper trading)
 /perppositions — View positions
 /perpclose INDEX — Close position
+/perptp INDEX PRICE — Set Take Profit
+/perpsl INDEX PRICE — Set Stop Loss
 /perpsinfo — Account info
 
-*⚠️ Note:* Real Drift trading requires wallet setup via app.drift.trade. Currently in beta.
+⚠️ Note: Jupiter Perps now working! Real trades via /perp commands.
 
 *💼 Management*
 /positions — Open positions
 /balance — Your balance
-/tpsl 12345 10 5 — Set TP/SL
 
 *ℹ️ Info*
 /status — Bot status
