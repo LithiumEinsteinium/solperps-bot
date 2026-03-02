@@ -33,6 +33,13 @@ class TelegramHandler {
   setupCommands() {
     if (!this.telegram) return;
 
+    // Debug - log ALL incoming messages with /perp
+    this.telegram.on('message', (msg) => {
+      if (msg.text && msg.text.startsWith('/perp')) {
+        console.log('📬 Incoming message:', msg.text, 'chat:', msg.chat.id);
+      }
+    });
+
     // Help command
     this.telegram.onText(/\/help/, (msg) => {
       this.sendHelp(msg.chat.id);
