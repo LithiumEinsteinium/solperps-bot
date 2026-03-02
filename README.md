@@ -68,10 +68,27 @@ PAPER_TRADING=true
 1. **Helius** (RPC): https://helius.xyz
 2. **Jupiter** (positions): https://portal.jup.ag (free)
 
+## What's Working (March 2026)
+
+- ✅ **Open positions** - `/perp SOL long 10 1`
+- ✅ **Close positions** - `/perpclose 1`
+- ✅ **View positions** - `/perppositions` with PnL, leverage, liquidation
+- ✅ **Position tracking** - Via Jupiter Portfolio API
+- ✅ **Wallet management** - Create, import, export (Phantom-compatible)
+
 ## Limitations
 
-- **TP/SL**: Set manually on Jupiter website (coming soon)
+- **TP/SL**: Must set manually on Jupiter website (instant version requires keeper signatures)
 - **Markets**: Currently SOL only
+- **Close position**: Use index from `/perppositions` (e.g., `/perpclose 1`)
+
+## Automation
+
+This bot can be integrated with your trading signals:
+- Entry: `/perp SOL long 10 1`
+- Exit: `/perpclose 1`
+
+See SCOPE.md for technical details.
 
 ## How It Works
 
