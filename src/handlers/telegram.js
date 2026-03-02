@@ -91,6 +91,7 @@ class TelegramHandler {
 
     // Jupiter Perps TP
     this.telegram.onText(/\/perptp\s+(\d+)\s+(\d+)/, async (msg, match) => {
+      console.log('📥 Received /perptp command:', match);
       const chatId = msg.chat.id;
       const positionIndex = parseInt(match[1]) - 1;
       const triggerPrice = parseFloat(match[2]);
@@ -114,6 +115,7 @@ class TelegramHandler {
 
     // Jupiter Perps SL
     this.telegram.onText(/\/perpsl\s+(\d+)\s+(\d+)/, async (msg, match) => {
+      console.log('📥 Received /perpsl command:', match);
       const chatId = msg.chat.id;
       const positionIndex = parseInt(match[1]) - 1;
       const triggerPrice = parseFloat(match[2]);
