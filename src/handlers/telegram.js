@@ -476,6 +476,62 @@ Mode: ${result.mode.toUpperCase()}`;
         } catch (e) {
           this.sendMessage(chatId, `❌ Error: ${e.message}`);
         }
+      } else if (text.startsWith('/perpsl ')) {
+        try {
+          const parts = text.split(' ');
+          const positionIndex = parseInt(parts[1]) - 1;
+          const triggerPrice = parseFloat(parts[2]);
+          
+          if (isNaN(positionIndex) || isNaN(triggerPrice)) {
+            return this.sendMessage(chatId, `Usage: /perpsl INDEX PRICE\nExample: /perpsl 1 82`);
+          }
+          
+          const positions = await this.bot.getPerpPositions(chatId);
+          if (!positions[positionIndex]) {
+            return this.sendMessage(chatId, `❌ Position ${parts[1]} not found`);
+          }
+          
+          const pos = positions[positionIndex];
+          this.sendMessage(chatId, `🛡️ Setting Stop Loss at $${triggerPrice}...`);
+          
+          const result = await this.bot.setPerpTpSl(chatId, positionIndex, triggerPrice, false);
+          
+          if (result.success) {
+            this.sendMessage(chatId, `✅ Stop Loss set!\nPrice: $${triggerPrice}\nTx: ${result.txid}`);
+          } else {
+            this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+          }
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
+      } else if (text.startsWith('/perptp ')) {
+        try {
+          const parts = text.split(' ');
+          const positionIndex = parseInt(parts[1]) - 1;
+          const triggerPrice = parseFloat(parts[2]);
+          
+          if (isNaN(positionIndex) || isNaN(triggerPrice)) {
+            return this.sendMessage(chatId, `Usage: /perptp INDEX PRICE\nExample: /perptp 1 85`);
+          }
+          
+          const positions = await this.bot.getPerpPositions(chatId);
+          if (!positions[positionIndex]) {
+            return this.sendMessage(chatId, `❌ Position ${parts[1]} not found`);
+          }
+          
+          const pos = positions[positionIndex];
+          this.sendMessage(chatId, `🎯 Setting Take Profit at $${triggerPrice}...`);
+          
+          const result = await this.bot.setPerpTpSl(chatId, positionIndex, triggerPrice, true);
+          
+          if (result.success) {
+            this.sendMessage(chatId, `✅ Take Profit set!\nPrice: $${triggerPrice}\nTx: ${result.txid}`);
+          } else {
+            this.sendMessage(chatId, `❌ Failed: ${result.error}`);
+          }
+        } catch (e) {
+          this.sendMessage(chatId, `❌ Error: ${e.message}`);
+        }
       } else if (text.startsWith('/perpinfo')) {
         try {
           const info = await this.bot.getPerpAccountInfo(chatId);
