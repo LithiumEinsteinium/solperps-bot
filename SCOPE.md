@@ -36,18 +36,16 @@
 |---------|--------|-------|
 | `/perp` open | ✅ Working | Opens real positions on Solana |
 | `/perppositions` | ✅ Working | Shows positions with PnL, leverage, liquidation |
-| `/perpclose` | ✅ Working | Closes positions! 🎉 |
+| `/perpclose` | ✅ Working | Closes positions! |
 | Position tracking | ✅ Working | Via Jupiter Portfolio API |
-| Size calculation | ✅ Fixed | Using raw amounts (not lamports) |
+| TP/SL | ⚠️ Manual | Must set on Jupiter website (needs keeper sigs) |
 
 ### ❌ Not Working / Limitations
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| `/perpclose` | ❌ Manual | Must close on Jupiter website |
-| TP/SL | ❌ Manual | Set on Jupiter website |
-| Auto-close | ❌ Not impl | Need to encode decrease position |
-| Multiple markets | ⚠️ SOL only | Currently hardcoded for SOL |
+| TP/SL encoding | ❌ Needs Jupiter keeper | Instant version requires keeper signatures |
+| Multiple markets | ⚠️ SOL only | Easy to add more |
 
 ---
 
