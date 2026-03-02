@@ -10,6 +10,10 @@ const ATA_PROGRAM = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 const EVENT_AUTHORITY = new PublicKey('37hJBDnntwqhGbK7L6M1bLyvccj4u55CCUiLPdYkiqBN');
 const PERPETUALS_PDA = new PublicKey('H4ND9aYttUVLFmNypZqLjZ52FYiGvdEB45GmwNoKEjTj');
 
+// Known keepers for TP/SL (from Jupiter UI transactions)
+const KEEPER = new PublicKey('perpSnt3NivMdD5DRFc7VmW6x7PuvQJGNyDTL74mEYx');
+const API_KEEPER = new PublicKey('Ag28fGtwtpnqassHURUBsQ1WfiyaWWzDDNs4Q28qHRjv');
+
 const CUSTODIES = {
   SOL: new PublicKey('7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz'),
   USDC: new PublicKey('G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa'),
@@ -368,8 +372,8 @@ async function buildTpslTransaction(connection, owner, positionAddress, opts = {
     programId: PERP_PROGRAM_ID,
     data,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true }, // 1. keeper
-      { pubkey: owner, isSigner: true, isWritable: true }, // 2. apiKeeper
+      { pubkey: KEEPER, isSigner: true, isWritable: true }, // 1. keeper
+      { pubkey: API_KEEPER, isSigner: true, isWritable: true }, // 2. apiKeeper
       { pubkey: owner, isSigner: true, isWritable: true }, // 3. owner
       { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 4. receivingAccount
       { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 5. perpetuals
@@ -395,4 +399,4 @@ async function buildTpslTransaction(connection, owner, positionAddress, opts = {
   return { instructions, blockhash };
 }
 
-module.exports = { CUSTODIES, MINTS, getATA, buildOpenPositionTransaction, buildClosePositionTransaction, buildTpslTransaction };
+module.exports = { CUSTODIES, MINTS, getATA, buildOpenPositionTransaction, buildClosePositionTransaction, buildTpslTransaction, KEEPER, API_KEEPER };
