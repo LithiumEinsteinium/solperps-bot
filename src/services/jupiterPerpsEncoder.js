@@ -372,8 +372,8 @@ async function buildTpslTransaction(connection, owner, positionAddress, opts = {
     programId: PERP_PROGRAM_ID,
     data,
     keys: [
-      { pubkey: KEEPER, isSigner: true, isWritable: true }, // 1. keeper
-      { pubkey: API_KEEPER, isSigner: true, isWritable: true }, // 2. apiKeeper
+      { pubkey: owner, isSigner: true, isWritable: true }, // 1. keeper (signer - use owner)
+      { pubkey: owner, isSigner: true, isWritable: true }, // 2. apiKeeper (signer - use owner)
       { pubkey: owner, isSigner: true, isWritable: true }, // 3. owner
       { pubkey: receivingAccount, isSigner: false, isWritable: true }, // 4. receivingAccount
       { pubkey: PERPETUALS_PDA, isSigner: false, isWritable: false }, // 5. perpetuals
